@@ -23,95 +23,164 @@ st.markdown("""
 <style>
     .stButton > button {
         width: 100%;
-        background-color: #4CAF50;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         font-size: 18px;
-        padding: 10px;
-        border-radius: 5px;
+        padding: 12px;
+        border-radius: 10px;
+        border: none;
         transition: all 0.3s;
+        font-weight: bold;
     }
     .stButton > button:hover {
-        background-color: #45a049;
         transform: scale(1.02);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
     }
     .stTextArea textarea {
         font-family: 'Courier New', monospace;
         font-size: 14px;
-        border: 2px solid #4CAF50;
-        border-radius: 5px;
+        border: 3px solid #4CAF50;
+        border-radius: 10px;
+        background: #1E1E1E;
+        color: #FFD700;
     }
     .success-box {
         padding: 20px;
-        border-radius: 10px;
+        border-radius: 15px;
         background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-        border: 2px solid #28a745;
+        border: 3px solid #28a745;
         color: #155724;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    .info-box {
-        padding: 20px;
-        border-radius: 10px;
-        background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
-        border: 2px solid #17a2b8;
-        color: #0c5460;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        font-size: 16px;
     }
     .animation-container {
-        border: 3px solid #4CAF50;
-        border-radius: 15px;
-        padding: 20px;
-        margin-top: 20px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-    }
-    .step-indicator {
-        background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-        color: #000;
-        padding: 15px;
-        border-radius: 10px;
-        font-weight: bold;
-        text-align: center;
-        font-size: 20px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    .control-panel {
-        background: #2D2D2D;
-        padding: 20px;
-        border-radius: 15px;
-        border: 2px solid #4CAF50;
-        margin: 20px 0;
-    }
-    .object-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 15px;
-        border-radius: 10px;
-        color: white;
-        margin: 10px 0;
-        border: 2px solid #FFD700;
-    }
-    .parameter-tag {
-        background: linear-gradient(135deg, #FF6B6B 0%, #FF8E8E 100%);
-        padding: 8px 15px;
+        border: 4px solid #4CAF50;
         border-radius: 20px;
+        padding: 25px;
+        margin-top: 25px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        box-shadow: 0 20px 30px rgba(0,0,0,0.3);
+    }
+    .class-box {
+        background: #1E1E1E;
+        border-radius: 15px;
+        padding: 20px;
+        border: 3px solid #4CAF50;
         color: white;
+        margin: 10px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+    .object-box {
+        background: #2D2D2D;
+        border-radius: 15px;
+        padding: 20px;
+        border: 3px solid #FFD700;
+        color: white;
+        margin: 10px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+    .step-badge {
+        background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+        color: black;
+        padding: 15px 25px;
+        border-radius: 50px;
         font-weight: bold;
+        font-size: 24px;
+        text-align: center;
+        margin-bottom: 25px;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        border: 2px solid white;
+    }
+    .private-member {
+        color: #FF6B6B;
+        font-size: 16px;
+        margin: 8px 0;
+        padding-left: 25px;
+        font-family: 'Courier New', monospace;
+    }
+    .public-member {
+        color: #6BFF6B;
+        font-size: 16px;
+        margin: 8px 0;
+        padding-left: 25px;
+        font-family: 'Courier New', monospace;
+    }
+    .parameter-pill {
+        background: linear-gradient(135deg, #FF6B6B 0%, #FF8E8E 100%);
+        color: white;
+        padding: 12px 25px;
+        border-radius: 30px;
+        font-weight: bold;
+        font-size: 18px;
         display: inline-block;
-        margin: 5px;
+        margin: 10px;
         animation: bounce 1s infinite;
+        border: 2px solid white;
+        box-shadow: 0 5px 10px rgba(0,0,0,0.2);
     }
     @keyframes bounce {
         0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-5px); }
+        50% { transform: translateY(-10px); }
     }
-    .arrow {
-        font-size: 30px;
+    .arrow-animation {
+        font-size: 40px;
         color: #FFD700;
         animation: moveArrow 1s infinite;
+        text-align: center;
+        margin: 20px;
     }
     @keyframes moveArrow {
         0% { transform: translateX(0); }
-        50% { transform: translateX(10px); }
+        50% { transform: translateX(20px); }
         100% { transform: translateX(0); }
+    }
+    .control-flow {
+        background: #2D2D2D;
+        padding: 15px;
+        border-radius: 50px;
+        text-align: center;
+        font-weight: bold;
+        font-size: 20px;
+        margin-top: 25px;
+        border: 3px solid #FFD700;
+        color: #FFD700;
+    }
+    .status-badge {
+        float: right;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: normal;
+    }
+    .creating-badge {
+        background: #FFD700;
+        color: black;
+    }
+    .created-badge {
+        background: #4CAF50;
+        color: white;
+    }
+    .member-table {
+        width: 100%;
+        margin-top: 15px;
+        border-collapse: collapse;
+    }
+    .member-table th {
+        color: #FFD700;
+        text-align: left;
+        padding: 8px;
+        border-bottom: 2px solid #FFD700;
+    }
+    .member-table td {
+        padding: 8px;
+        border-bottom: 1px solid #444;
+    }
+    .init-check {
+        color: #4CAF50;
+        font-weight: bold;
+    }
+    .init-pending {
+        color: #888;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -123,8 +192,6 @@ if 'parsed_data' not in st.session_state:
     st.session_state.parsed_data = None
 if 'auto_play' not in st.session_state:
     st.session_state.auto_play = False
-if 'current_object' not in st.session_state:
-    st.session_state.current_object = 0
 
 class CPPCodeParser:
     def __init__(self):
@@ -195,82 +262,88 @@ def create_animation_html(step, parsed_data):
     class_name = parsed_data.get('class_name', 'Student')
     private_members = parsed_data.get('private_members', ['name', 'age', 'major'])
     constructor_params = parsed_data.get('constructor_params', ['n', 'a', 'm'])
-    objects = parsed_data.get('objects', [{'name': 'student1', 'params': ['Ali', '20', 'CS']}])
+    objects = parsed_data.get('objects', [])
+    
+    if not objects:
+        objects = [{'name': 'student1', 'params': ['Ali Raza', '20', 'Computer Science']}]
     
     # Step descriptions
     step_texts = [
-        "📌 Step 1: main() calls constructor",
-        "⚡ Step 2: Control transfers to constructor",
-        "📦 Step 3: Parameters are passed",
-        "🔧 Step 4: Initializing private member: " + private_members[0] if private_members else "name",
-        "🔧 Step 5: Initializing private member: " + private_members[1] if len(private_members) > 1 else "age",
-        "🔧 Step 6: Initializing private member: " + private_members[2] if len(private_members) > 2 else "major",
-        "✅ Step 7: Constructor completes",
-        "🔄 Step 8: Control returns to main()",
-        "📢 Step 9: display() method called",
-        "🎉 Step 10: Object successfully created!"
+        "📌 main() calls constructor",
+        "⚡ Control transfers to constructor",
+        "📦 Parameters are being passed",
+        "🔧 Initializing: " + (private_members[0] if private_members else "name"),
+        "🔧 Initializing: " + (private_members[1] if len(private_members) > 1 else "age"),
+        "🔧 Initializing: " + (private_members[2] if len(private_members) > 2 else "major"),
+        "✅ Constructor completes",
+        "🔄 Control returns to main()",
+        "📢 display() method called",
+        "🎉 Object successfully created!"
     ]
     
     current_text = step_texts[step] if step < len(step_texts) else "Complete!"
     
-    # Build HTML animation
-    html = f"""
-    <div style="font-family: Arial, sans-serif;">
+    # Build HTML animation as a proper HTML string
+    html = f'''
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; color: white;">
         <!-- Step Indicator -->
-        <div class="step-indicator" style="margin-bottom: 20px;">
-            {current_text}
+        <div class="step-badge">
+            Step {step + 1}/10: {current_text}
         </div>
         
-        <div style="display: flex; gap: 20px; margin-top: 20px;">
+        <!-- Main Animation Area -->
+        <div style="display: flex; gap: 25px; margin-top: 25px;">
             <!-- Class Structure -->
-            <div style="flex: 1; background: #1E1E1E; border-radius: 15px; padding: 20px; border: 3px solid #4CAF50;">
-                <h3 style="color: #4CAF50; margin-top: 0;">📦 {class_name} Class</h3>
-                <div style="border-top: 2px solid #4CAF50; margin: 10px 0;"></div>
+            <div class="class-box" style="flex: 1;">
+                <h2 style="color: #4CAF50; margin-top: 0; border-bottom: 2px solid #4CAF50; padding-bottom: 10px;">
+                    📦 {class_name} Class
+                </h2>
                 
-                <div style="color: #FF6B6B; margin: 15px 0;">
-                    <strong style="font-size: 16px;">🔒 private:</strong><br>
-                    {''.join([f'<span style="display: block; margin: 5px 0 5px 20px;">• {member}</span>' for member in private_members])}
+                <div style="margin: 20px 0;">
+                    <h3 style="color: #FF6B6B; margin: 10px 0;">🔒 Private Members:</h3>
+                    {''.join([f'<div class="private-member">• {member}</div>' for member in private_members])}
                 </div>
                 
-                <div style="border-top: 1px solid #444; margin: 15px 0;"></div>
-                
-                <div style="color: #6BFF6B;">
-                    <strong style="font-size: 16px;">🔓 public:</strong><br>
-                    <span style="display: block; margin: 5px 0 5px 20px;">
-                        + {class_name}({', '.join(constructor_params)})
-                    </span>
-                    <span style="display: block; margin: 5px 0 5px 20px;">+ display()</span>
+                <div style="margin: 20px 0;">
+                    <h3 style="color: #6BFF6B; margin: 10px 0;">🔓 Public Methods:</h3>
+                    <div class="public-member">+ {class_name}({', '.join(constructor_params)})</div>
+                    <div class="public-member">+ display()</div>
                 </div>
                 
-                <!-- Constructor Body (visible in steps 3-6) -->
+                <!-- Constructor Body (visible during initialization) -->
                 {f'''
-                <div style="margin-top: 20px; padding: 15px; background: #2D2D2D; border-radius: 10px; border-left: 5px solid #FFD700;">
-                    <strong style="color: #FFD700;">Constructor Body:</strong><br>
-                    <code style="color: #fff;">
-                        {chr(10).join([f'&nbsp;&nbsp;{member} = {param};' for member, param in zip(private_members, constructor_params)])}
-                    </code>
+                <div style="margin-top: 25px; padding: 15px; background: #2D2D2D; border-radius: 10px; border-left: 5px solid #FFD700;">
+                    <h4 style="color: #FFD700; margin: 0 0 10px 0;">⚙️ Constructor Execution:</h4>
+                    {''.join([f'<div style="color: white; font-family: monospace; margin: 5px 0;">{member} = {constructor_params[i]};</div>' 
+                             for i, member in enumerate(private_members)])}
                 </div>
-                ''' if 3 <= step <= 6 else ''}
+                ''' if 2 <= step <= 6 else ''}
             </div>
             
             <!-- Objects Area -->
-            <div style="flex: 1; background: #1E1E1E; border-radius: 15px; padding: 20px; border: 3px solid #FFD700;">
-                <h3 style="color: #FFD700; margin-top: 0;">🎯 Objects</h3>
-                <div style="border-top: 2px solid #FFD700; margin: 10px 0;"></div>
+            <div class="object-box" style="flex: 1;">
+                <h2 style="color: #FFD700; margin-top: 0; border-bottom: 2px solid #FFD700; padding-bottom: 10px;">
+                    🎯 Objects
+                </h2>
                 
                 {''.join([f'''
-                <div style="background: {'#FFD700' if i == 0 and step < 7 else '#2D2D2D'}; 
-                           border-radius: 10px; 
-                           padding: 15px; 
-                           margin: 10px 0;
-                           border: 2px solid {'#FFD700' if i == 0 and step < 7 else '#666'};
-                           transition: all 0.3s;">
-                    <h4 style="color: {'#000' if i == 0 and step < 7 else '#FFD700'}; margin: 0 0 10px 0;">
-                        {obj['name']}
-                        {f'<span style="float: right; font-size: 12px;">⚡ CREATING</span>' if i == 0 and 1 <= step <= 6 else ''}
-                        {f'<span style="float: right; font-size: 12px; color: #4CAF50;">✓ CREATED</span>' if i == 0 and step >= 7 else ''}
-                    </h4>
-                    <table style="width: 100%; color: {'#000' if i == 0 and step < 7 else '#fff'};">
+                <div style="background: {'#FFD700' if i == 0 and step < 7 else '#363636'}; 
+                            border-radius: 12px; 
+                            padding: 15px; 
+                            margin: 15px 0;
+                            border: 2px solid {'#FFD700' if i == 0 and step < 7 else '#666'};
+                            transition: all 0.3s;">
+                    <h3 style="color: {'black' if i == 0 and step < 7 else '#FFD700'}; 
+                               margin: 0 0 10px 0;
+                               display: flex;
+                               justify-content: space-between;
+                               align-items: center;">
+                        <span>{obj['name']}</span>
+                        {f'<span class="status-badge creating-badge">⚡ CREATING</span>' if i == 0 and 1 <= step <= 6 else ''}
+                        {f'<span class="status-badge created-badge">✓ CREATED</span>' if i == 0 and step >= 7 else ''}
+                    </h3>
+                    
+                    <table class="member-table">
                         <tr>
                             <th>Member</th>
                             <th>Value</th>
@@ -278,10 +351,16 @@ def create_animation_html(step, parsed_data):
                         </tr>
                         {''.join([f'''
                         <tr>
-                            <td>{private_members[j] if j < len(private_members) else 'member'}</td>
-                            <td>{obj['params'][j] if j < len(obj['params']) else '...'}</td>
+                            <td style="color: {'black' if i == 0 and step < 7 else '#FFD700'};">
+                                {private_members[j] if j < len(private_members) else f'param{j}'}
+                            </td>
+                            <td style="color: {'black' if i == 0 and step < 7 else 'white'};">
+                                {obj['params'][j] if j < len(obj['params']) else '...'}
+                            </td>
                             <td>
-                                {f'✅' if step > j + 3 and i == 0 else '○'}
+                                <span class="{'init-check' if step > j + 3 and i == 0 else 'init-pending'}">
+                                    {'✓ Initialized' if step > j + 3 and i == 0 else '○ Pending'}
+                                </span>
                             </td>
                         </tr>
                         ''' for j in range(min(3, len(private_members)))])}
@@ -294,36 +373,36 @@ def create_animation_html(step, parsed_data):
         <!-- Parameter Passing Animation -->
         {f'''
         <div style="margin-top: 30px; text-align: center;">
-            <div style="display: flex; justify-content: center; gap: 30px; margin-bottom: 20px;">
-                {''.join([f'<div class="parameter-tag">{param}: {obj["params"][i] if i < len(obj["params"]) else "..."}</div>' 
+            <div style="display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; margin-bottom: 20px;">
+                {''.join([f'<div class="parameter-pill">{param}: {objects[0]["params"][i] if objects and i < len(objects[0]["params"]) else "..."}</div>' 
                          for i, param in enumerate(constructor_params)])}
             </div>
-            <div class="arrow">⬇️ ⬇️ ⬇️</div>
-            <div style="margin-top: 20px; padding: 15px; background: #4CAF50; border-radius: 10px; color: white;">
-                📍 Parameters moving to constructor...
+            <div class="arrow-animation">
+                ⬇️ ⬇️ ⬇️  PARAMETERS FLOWING TO CONSTRUCTOR  ⬇️ ⬇️ ⬇️
             </div>
         </div>
         ''' if 2 <= step <= 3 else ''}
         
         <!-- Control Flow Indicator -->
         {f'''
-        <div style="margin-top: 20px; padding: 15px; background: {'#FFD700' if step < 2 else '#4CAF50'}; 
-                    border-radius: 10px; text-align: center; font-weight: bold;">
-            {'⚡ Control in main()' if step < 2 or step > 6 else '🔧 Control in Constructor'}
+        <div class="control-flow">
+            {'⚡ CONTROL IN main() FUNCTION' if step < 2 or step > 6 else '🔧 CONTROL INSIDE CONSTRUCTOR'}
         </div>
         ''' if step > 0 else ''}
     </div>
-    """
+    '''
     
     return html
 
 def main():
-    # Header with animation
+    # Header
     st.markdown("""
-    <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                border-radius: 15px; margin-bottom: 30px; box-shadow: 0 10px 20px rgba(0,0,0,0.2);">
-        <h1 style="color: white; font-size: 48px; margin: 0;">🎮 C++ Constructor Visualizer</h1>
-        <p style="color: #FFD700; font-size: 20px; margin: 10px 0 0 0;">
+    <div style="text-align: center; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                border-radius: 20px; margin-bottom: 30px; box-shadow: 0 20px 30px rgba(0,0,0,0.3);">
+        <h1 style="color: white; font-size: 52px; margin: 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
+            🎮 C++ Constructor Visualizer
+        </h1>
+        <p style="color: #FFD700; font-size: 24px; margin: 10px 0 0 0; font-weight: bold;">
             Visualize Parameterized Constructors Step by Step
         </p>
     </div>
@@ -371,6 +450,7 @@ int main() {
     return 0;
 }'''
             st.session_state.sample = sample
+            st.rerun()
     
     # Main content
     col1, col2 = st.columns([3, 2])
@@ -465,10 +545,10 @@ int main() {
                 st.session_state.auto_play = False
         
         # Progress
-        progress_text = f"Step {st.session_state.step + 1}/10"
-        st.progress((st.session_state.step + 1) / 10, text=progress_text)
+        st.progress((st.session_state.step + 1) / 10, 
+                   text=f"**Step {st.session_state.step + 1}/10**")
         
-        # Animation display
+        # Animation display - Use st.markdown with unsafe_allow_html=True
         html_anim = create_animation_html(st.session_state.step, st.session_state.parsed_data)
         st.markdown(f'<div class="animation-container">{html_anim}</div>', unsafe_allow_html=True)
         
@@ -485,7 +565,7 @@ int main() {
     # Footer
     st.markdown("---")
     st.markdown("""
-    <div style="text-align: center; color: #666; padding: 20px;">
+    <div style="text-align: center; color: #888; padding: 20px; font-size: 16px;">
         Made with ❤️ for C++ Students | Step-by-Step Constructor Visualization
     </div>
     """, unsafe_allow_html=True)
