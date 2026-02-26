@@ -1,996 +1,662 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import re
 import time
 
-# Page config
+# Page configuration
 st.set_page_config(
     page_title="C++ Constructor Visualizer",
-    page_icon="🔧",
-    layout="wide"
+    page_icon="🎮",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better styling
+# ---------- PAGE (STREAMLIT) CSS ----------
 st.markdown("""
 <style>
-    .stApp {
-        background-color: #0a0a14;
-    }
+    /* Main container styles */
     .main-title {
-        color: #ffff64;
         text-align: center;
-        font-size: 2.5rem;
-        margin-bottom: 2rem;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        padding: 30px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        margin-bottom: 30px;
+        box-shadow: 0 20px 30px rgba(0,0,0,0.3);
     }
-    .panel {
-        background-color: #191928;
-        border-radius: 10px;
-        padding: 20px;
-        margin: 10px;
-        border: 2px solid #6496ff;
+    .main-title h1 {
         color: white;
+        font-size: 52px;
+        margin: 0;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
     }
-    .code-panel {
-        background-color: #1e1e2e;
-        border-radius: 10px;
-        padding: 15px;
-        font-family: 'Courier New', monospace;
-        font-size: 14px;
-        color: #a0a0ff;
-        border: 2px solid #78ff78;
-        max-height: 400px;
-        overflow-y: auto;
-    }
-    .console-panel {
-        background-color: #14141e;
-        border-radius: 10px;
-        padding: 15px;
-        font-family: 'Courier New', monospace;
-        color: #00ff00;
-        border: 2px solid #00ff00;
-        height: 150px;
-        overflow-y: auto;
-    }
-    .object-panel {
-        background-color: #ffb432;
-        border-radius: 10px;
-        padding: 15px;
-        margin: 10px;
-        color: black;
-        border: 2px solid #ffff64;
-        transition: all 0.3s ease;
-    }
-    .object-panel.current {
-        transform: scale(1.05);
-        border: 4px solid #ffff64;
-        box-shadow: 0 0 20px #ffff64;
-    }
-    .object-panel.created {
-        border: 4px solid #64ff64;
-    }
-    .member-init {
-        margin: 5px 0;
-        padding: 3px;
-        border-radius: 3px;
-    }
-    .member-init.completed {
-        background-color: #2a5a2a;
-        color: #a0ffa0;
-    }
-    .step-box {
-        background-color: #3c3c50;
-        border-radius: 10px;
-        padding: 15px;
-        border: 2px solid #ffff64;
-        color: white;
-    }
-    .progress-bar {
-        height: 20px;
-        background-color: #46465a;
-        border-radius: 10px;
-        overflow: hidden;
-        margin: 10px 0;
-    }
-    .progress-fill {
-        height: 100%;
-        background-color: #ffff64;
-        transition: width 0.3s ease;
-    }
-    .control-button {
-        background-color: #32324a;
-        color: white;
-        border: 2px solid #c896ff;
-        border-radius: 5px;
-        padding: 10px 20px;
-        margin: 5px;
-        cursor: pointer;
-        font-size: 16px;
-        width: 100%;
-    }
-    .control-button:hover {
-        background-color: #4a4a6a;
-    }
-    .hl-line {
-        background-color: #ffff64;
-        color: black;
-        padding: 2px 5px;
-        border-radius: 3px;
+    .main-title p {
+        color: #FFD700;
+        font-size: 24px;
+        margin: 10px 0 0 0;
         font-weight: bold;
     }
-    .arrow-indicator {
-        color: #c896ff;
-        font-size: 20px;
-        margin: 10px 0;
-        padding: 5px;
-        background-color: #2a2a3a;
-        border-radius: 5px;
-        text-align: center;
-    }
-    .error-box {
-        background-color: #ff4d4d20;
-        border: 2px solid #ff4d4d;
+
+    /* Button styles */
+    .stButton > button {
+        width: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-size: 18px;
+        padding: 12px;
         border-radius: 10px;
-        padding: 20px;
-        color: #ff4d4d;
-        text-align: center;
-        margin: 20px;
+        border: none;
+        transition: all 0.3s;
+        font-weight: bold;
     }
+    .stButton > button:hover {
+        transform: scale(1.02);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    }
+
+    /* Text area styles */
+    .stTextArea textarea {
+        font-family: 'Courier New', monospace;
+        font-size: 14px;
+        border: 3px solid #4CAF50;
+        border-radius: 10px;
+        background: #1E1E1E;
+        color: #FFD700;
+    }
+
+    /* Success box */
     .success-box {
-        background-color: #00ff0020;
-        border: 2px solid #00ff00;
-        border-radius: 10px;
-        padding: 10px;
-        color: #00ff00;
-        text-align: center;
+        padding: 20px;
+        border-radius: 15px;
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        border: 3px solid #28a745;
+        color: #155724;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        font-size: 16px;
     }
-    .debug-box {
-        background-color: #2a2a3a;
-        border: 1px solid #6496ff;
-        border-radius: 5px;
-        padding: 10px;
-        margin: 10px 0;
-        color: #a0a0ff;
-        font-family: monospace;
-        font-size: 12px;
+
+    /* Footer */
+    .footer {
+        text-align: center;
+        color: #888;
+        padding: 20px;
+        font-size: 16px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state
+# ---------- SESSION STATE ----------
 if 'step' not in st.session_state:
-    st.session_state.step = -1
-if 'current_obj' not in st.session_state:
-    st.session_state.current_obj = 0
-if 'auto_play' not in st.session_state:
-    st.session_state.auto_play = False
-if 'paused' not in st.session_state:
-    st.session_state.paused = False
-if 'console' not in st.session_state:
-    st.session_state.console = []
-if 'created' not in st.session_state:
-    st.session_state.created = []
-if 'initialized' not in st.session_state:
-    st.session_state.initialized = []
-if 'code' not in st.session_state:
-    st.session_state.code = ""
+    st.session_state.step = 0
 if 'parsed_data' not in st.session_state:
     st.session_state.parsed_data = None
-if 'steps' not in st.session_state:
-    st.session_state.steps = []
-if 'parse_error' not in st.session_state:
-    st.session_state.parse_error = None
-if 'debug_info' not in st.session_state:
-    st.session_state.debug_info = []
+if 'auto_play' not in st.session_state:
+    st.session_state.auto_play = False
+if 'show_animation' not in st.session_state:
+    st.session_state.show_animation = False
+if 'sample' not in st.session_state:
+    st.session_state.sample = None
 
-# ───────────────────────────────────────────────
-#                  PARSER
-# ───────────────────────────────────────────────
 
 class CPPCodeParser:
     def __init__(self):
         self.class_name = ""
-        self.members = []
-        self.member_types = {}
-        self.ctor_params = []
-        self.ctor_param_types = {}
+        self.private_members = []
+        self.constructor_params = []
         self.objects = []
-        self.code_lines = []
-        self.main_lines = []
         self.error = None
-        self.member_to_param_map = {}
-        self.has_valid_constructor = False
-        self.constructor_body = ""
-        self.all_classes = []
-        self.debug_info = []
 
-    def parse(self, code):
+    def parse(self, code: str):
         try:
-            self.debug_info = ["Starting parse..."]
-            
-            # Store raw code lines
-            self.code_lines = [line.rstrip() for line in code.split('\n') if line.strip()]
-            self.debug_info.append(f"Found {len(self.code_lines)} non-empty lines")
-            
-            if not self.code_lines:
-                self.error = "Empty file"
-                return False
-            
-            # Remove comments but keep line structure
-            clean_code = self._remove_comments(code)
-            
-            # Find all classes
-            self._find_classes(clean_code)
-            
-            if not self.all_classes:
-                self.error = "No classes found in the code. Make sure your code contains a 'class' definition."
-                self.debug_info.append("ERROR: No classes found")
-                return False
-            
-            # Use the first class found
-            class_info = self.all_classes[0]
-            self.class_name = class_info['name']
-            self.members = class_info['members']
-            self.member_types = class_info['member_types']
-            self.ctor_params = class_info['params']
-            self.ctor_param_types = class_info['param_types']
-            self.constructor_body = class_info['ctor_body']
-            
-            self.debug_info.append(f"Found class: {self.class_name}")
-            self.debug_info.append(f"Members: {self.members}")
-            self.debug_info.append(f"Constructor params: {self.ctor_params}")
-            
-            # Map members to parameters
-            self._map_members_to_params()
-            
-            # Find objects
-            self._find_objects(clean_code)
-            
-            self.debug_info.append(f"Found objects: {[obj['name'] for obj in self.objects]}")
-            
-            if not self.objects:
-                self.error = "No objects found. Make sure your code creates objects of the class."
-                return False
-            
-            # Find main function (optional)
-            self._find_main(clean_code)
-            
-            return True
+            # Reset
+            self.class_name = ""
+            self.private_members = []
+            self.constructor_params = []
+            self.objects = []
+            self.error = None
+
+            # Extract class name
+            class_match = re.search(r'\bclass\s+(\w+)\b', code)
+            if class_match:
+                self.class_name = class_match.group(1)
+            else:
+                return {"error": "No class found. Please include a C++ class definition."}
+
+            # Extract private members (basic)
+            private_section = re.search(r'private:\s*(.*?)(?=public:|protected:|};)', code, re.DOTALL)
+            if private_section:
+                private_text = private_section.group(1)
+                members = re.findall(r'\b(\w+)\s+(\w+)\s*;', private_text)
+                self.private_members = [name for _typ, name in members]
+
+            # Extract constructor params (IMPORTANT FIX: match ClassName(...), not main(...))
+            ctor_match = re.search(rf'\b{re.escape(self.class_name)}\s*\((.*?)\)\s*(?::[^\{{]]*)?\{{', code, re.DOTALL)
+            if ctor_match:
+                params_text = ctor_match.group(1).strip()
+                if params_text:
+                    # naive param capture: take last identifier in each comma-separated param
+                    raw_params = [p.strip() for p in params_text.split(",")]
+                    params = []
+                    for p in raw_params:
+                        # remove default values
+                        p = p.split("=")[0].strip()
+                        m = re.findall(r'(\w+)\s*$', p)
+                        if m:
+                            params.append(m[-1])
+                    self.constructor_params = params
+
+            # Extract object creations in main (basic pattern: ClassName obj(...);)
+            main_section = re.search(r'\bint\s+main\s*\(.*?\)\s*\{(.*)\}', code, re.DOTALL)
+            if main_section:
+                main_text = main_section.group(1)
+                obj_pattern = rf'\b{re.escape(self.class_name)}\s+(\w+)\s*\((.*?)\)\s*;'
+                objects = re.findall(obj_pattern, main_text, re.DOTALL)
+
+                for obj_name, params_str in objects:
+                    # Split by commas (simple)
+                    raw = [p.strip() for p in params_str.split(",")] if params_str.strip() else []
+                    # Strip quotes for display
+                    cleaned = [p.strip().strip('"').strip("'") for p in raw]
+                    self.objects.append({"name": obj_name, "params": cleaned})
+
+            return {
+                "class_name": self.class_name,
+                "private_members": self.private_members,
+                "constructor_params": self.constructor_params,
+                "objects": self.objects,
+                "error": None
+            }
 
         except Exception as e:
-            self.error = f"Parse error: {str(e)}"
-            self.debug_info.append(f"EXCEPTION: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            return False
+            return {"error": str(e)}
 
-    def _remove_comments(self, code):
-        """Remove comments from code"""
-        # Remove single line comments
-        code = re.sub(r'//.*$', '', code, flags=re.MULTILINE)
-        # Remove multi-line comments
-        code = re.sub(r'/\*.*?\*/', '', code, flags=re.DOTALL)
-        return code
 
-    def _find_classes(self, code):
-        """Find all classes in the code"""
-        # Pattern to match class definition
-        class_pattern = r'class\s+(\w+)\s*{'
-        
-        for match in re.finditer(class_pattern, code):
-            class_name = match.group(1)
-            start_pos = match.end()
-            
-            # Find matching closing brace
-            brace_count = 1
-            pos = start_pos
-            while pos < len(code) and brace_count > 0:
-                if code[pos] == '{':
-                    brace_count += 1
-                elif code[pos] == '}':
-                    brace_count -= 1
-                pos += 1
-            
-            class_body = code[start_pos:pos-1]
-            
-            # Parse class members
-            members = []
-            member_types = {}
-            
-            # Look for member variables (common patterns)
-            patterns = [
-                r'(\w+(?:\s*[\*&])?)\s+(\w+)\s*;',  # type name;
-                r'(\w+(?:\s*[\*&])?)\s+(\w+)\s*=', # type name = value;
-                r'(\w+)\s+(\w+)\s*\[\d*\]\s*;',     # array type name[size];
-            ]
-            
-            for pattern in patterns:
-                for var_match in re.finditer(pattern, class_body):
-                    if len(var_match.groups()) >= 2:
-                        typ, name = var_match.group(1).strip(), var_match.group(2).strip()
-                        # Filter out methods and keywords
-                        if (name not in members and 
-                            '(' not in typ and 
-                            ')' not in name and
-                            name != class_name and
-                            not name.startswith('_')):
-                            members.append(name)
-                            member_types[name] = typ
-                            self.debug_info.append(f"Found member: {typ} {name}")
-            
-            # Find constructor
-            ctor_params = []
-            ctor_param_types = {}
-            ctor_body = ""
-            
-            # Look for constructor definition
-            ctor_pattern = rf'{class_name}\s*\(([^)]*)\)'
-            for ctor_match in re.finditer(ctor_pattern, code):
-                params_str = ctor_match.group(1).strip()
-                
-                # Check if this is likely a constructor (followed by { or :)
-                next_chars = code[ctor_match.end():ctor_match.end()+20]
-                if '{' in next_chars or ':' in next_chars:
-                    
-                    # Find constructor body
-                    ctor_start = ctor_match.end()
-                    brace_count = 1
-                    ctor_end = ctor_start
-                    
-                    # Find opening brace
-                    while ctor_start < len(code) and code[ctor_start] != '{':
-                        ctor_start += 1
-                    
-                    if ctor_start < len(code):
-                        ctor_start += 1
-                        for i, ch in enumerate(code[ctor_start:], ctor_start):
-                            if ch == '{':
-                                brace_count += 1
-                            elif ch == '}':
-                                brace_count -= 1
-                                if brace_count == 0:
-                                    ctor_end = i
-                                    break
-                        
-                        ctor_body = code[ctor_start:ctor_end]
-                    
-                    # Parse parameters
-                    if params_str and params_str != 'void':
-                        # Handle default values
-                        params_str = re.sub(r'=\s*[^,)]+', '', params_str)
-                        
-                        # Split parameters
-                        for param in self._split_parameters(params_str):
-                            if param.strip():
-                                # Handle pointers and references
-                                parts = param.strip().split()
-                                if len(parts) >= 2:
-                                    name = parts[-1].replace('*', '').replace('&', '').strip()
-                                    typ = ' '.join(parts[:-1]).strip()
-                                    ctor_params.append(name)
-                                    ctor_param_types[name] = typ
-                                    self.debug_info.append(f"Found parameter: {typ} {name}")
-                    
-                    break  # Use first constructor found
-            
-            self.all_classes.append({
-                'name': class_name,
-                'members': members,
-                'member_types': member_types,
-                'params': ctor_params,
-                'param_types': ctor_param_types,
-                'ctor_body': ctor_body
-            })
+def create_animation_html(step: int, parsed_data: dict) -> str:
+    """Return FULL HTML (with CSS) for components.html() rendering."""
+    if not parsed_data or parsed_data.get("error"):
+        return "<div style='color:red;padding:20px;font-family:sans-serif;'>No valid data to display</div>"
 
-    def _split_parameters(self, params_str):
-        """Split parameter string respecting templates"""
-        params = []
-        bracket_level = 0
-        current = ''
-        
-        for char in params_str + ',':
-            if char == ',' and bracket_level == 0:
-                if current.strip():
-                    params.append(current.strip())
-                current = ''
-            else:
-                if char == '<':
-                    bracket_level += 1
-                elif char == '>':
-                    bracket_level -= 1
-                current += char
-        
-        return params
+    class_name = parsed_data.get("class_name", "Student")
+    private_members = parsed_data.get("private_members", ["name", "age", "major"])
+    constructor_params = parsed_data.get("constructor_params", ["n", "a", "m"])
+    objects = parsed_data.get("objects", []) or [{"name": "student1", "params": ["Ali Raza", "20", "Computer Science"]}]
 
-    def _map_members_to_params(self):
-        """Map member variables to constructor parameters"""
-        # First try exact matches
-        for mem in self.members:
-            for param in self.ctor_params:
-                if mem == param:
-                    self.member_to_param_map[mem] = param
-                    break
-        
-        # If no exact matches, try by position
-        if not self.member_to_param_map:
-            for i, mem in enumerate(self.members):
-                if i < len(self.ctor_params):
-                    self.member_to_param_map[mem] = self.ctor_params[i]
+    step_texts = [
+        "📌 main() calls constructor",
+        "⚡ Control transfers to constructor",
+        "📦 Parameters are being passed",
+        f"🔧 Initializing: {private_members[0] if private_members else 'member1'}",
+        f"🔧 Initializing: {private_members[1] if len(private_members) > 1 else 'member2'}",
+        f"🔧 Initializing: {private_members[2] if len(private_members) > 2 else 'member3'}",
+        "✅ Constructor completes",
+        "🔄 Control returns to main()",
+        "📢 display() method called",
+        "🎉 Object successfully created!"
+    ]
+    current_text = step_texts[step] if step < len(step_texts) else "Complete!"
 
-    def _find_objects(self, code):
-        """Find object declarations"""
-        
-        # Multiple patterns for object creation
-        patterns = [
-            # ClassName objName(args);
-            (rf'{self.class_name}\s+(\w+)\s*\(([^)]*)\)\s*;', True),
-            # ClassName objName; (default constructor)
-            (rf'{self.class_name}\s+(\w+)\s*;', False),
-            # ClassName objName = ClassName(args);
-            (rf'{self.class_name}\s+(\w+)\s*=\s*{self.class_name}\s*\(([^)]*)\)\s*;', True),
-            # ClassName* objName = new ClassName(args);
-            (rf'{self.class_name}\s*\*\s*(\w+)\s*=\s*new\s+{self.class_name}\s*\(([^)]*)\)\s*;', True),
-            # ClassName objName = {args};
-            (rf'{self.class_name}\s+(\w+)\s*=\s*{{([^}}]*)}}\s*;', True),
-            # ClassName objName{args};
-            (rf'{self.class_name}\s+(\w+)\s*{{([^}}]*)}}\s*;', True),
-        ]
-        
-        for pattern, has_args in patterns:
-            for match in re.finditer(pattern, code, re.MULTILINE):
-                if has_args and len(match.groups()) >= 2:
-                    name, args_str = match.group(1), match.group(2)
-                    args = self._parse_arguments(args_str)
-                elif not has_args and len(match.groups()) >= 1:
-                    name = match.group(1)
-                    args = []
-                else:
-                    continue
-                
-                # Check if object already exists
-                if not any(obj['name'] == name for obj in self.objects):
-                    self.objects.append({
-                        'name': name,
-                        'args': args
-                    })
-                    self.debug_info.append(f"Found object: {name} with args {args}")
+    # build private members html
+    private_members_html = "".join([f'<div class="private-member">• {m}</div>' for m in private_members])
 
-    def _parse_arguments(self, args_str):
-        """Parse argument string into list"""
-        args = []
-        if not args_str.strip():
-            return args
-        
-        bracket_level = 0
-        current = ''
-        
-        for char in args_str + ',':
-            if char == ',' and bracket_level == 0:
-                if current.strip():
-                    arg = current.strip()
-                    # Remove quotes
-                    if arg.startswith(('"', "'")) and arg.endswith(('"', "'")):
-                        arg = arg[1:-1]
-                    # Try to convert to number if possible
-                    try:
-                        if '.' in arg:
-                            arg = float(arg)
-                        else:
-                            arg = int(arg)
-                    except:
-                        pass
-                    args.append(arg)
-                current = ''
-            else:
-                if char in '([{':
-                    bracket_level += 1
-                elif char in ')]}':
-                    bracket_level -= 1
-                current += char
-        
-        return args
+    # constructor body (assignment view)
+    constructor_body_html = ""
+    if 2 <= step <= 6:
+        constructor_body_html += """
+        <div class="ctor-box">
+            <h4 class="ctor-title">⚙️ Constructor Execution:</h4>
+        """
+        for i, member in enumerate(private_members):
+            if i < len(constructor_params):
+                constructor_body_html += f'<div class="ctor-line">{member} = {constructor_params[i]};</div>'
+        constructor_body_html += "</div>"
 
-    def _find_main(self, code):
-        """Find main function"""
-        main_patterns = [
-            r'int\s+main\s*\([^)]*\)\s*{',
-            r'main\s*\(\s*\)\s*{',
-            r'void\s+main\s*\([^)]*\)\s*{'
-        ]
-        
-        for pattern in main_patterns:
-            main_match = re.search(pattern, code)
-            if main_match:
-                start = main_match.end()
-                brace_count = 1
-                end = start
-                
-                # Find opening brace
-                while start < len(code) and code[start] != '{':
-                    start += 1
-                
-                if start < len(code):
-                    start += 1
-                    for i, ch in enumerate(code[start:], start):
-                        if ch == '{':
-                            brace_count += 1
-                        elif ch == '}':
-                            brace_count -= 1
-                            if brace_count == 0:
-                                end = i
-                                break
-                    
-                    main_body = code[start:end]
-                    self.main_lines = [line.strip() for line in main_body.split('\n') if line.strip()]
-                    self.debug_info.append(f"Found main function with {len(self.main_lines)} lines")
-                    break
+    # objects html
+    objects_html = ""
+    for i, obj in enumerate(objects):
+        active = (i == 0 and step < 7)
+        bg = "#FFD700" if active else "#363636"
+        text = "black" if active else "#FFD700"
+        border = "#FFD700" if active else "#666"
+        value_color = "black" if active else "white"
 
-# ───────────────────────────────────────────────
-#                VISUALIZER FUNCTIONS
-# ───────────────────────────────────────────────
+        status_badge = ""
+        if i == 0:
+            if 1 <= step <= 6:
+                status_badge = '<span class="status-badge creating-badge">⚡ CREATING</span>'
+            elif step >= 7:
+                status_badge = '<span class="status-badge created-badge">✓ CREATED</span>'
 
-def parse_code(code):
-    """Parse the C++ code"""
-    parser = CPPCodeParser()
-    if parser.parse(code):
-        st.session_state.debug_info = parser.debug_info
-        return parser
-    else:
-        st.session_state.parse_error = parser.error
-        st.session_state.debug_info = parser.debug_info
-        return None
+        table_rows = ""
+        for j in range(min(3, len(private_members))):
+            value = obj["params"][j] if j < len(obj["params"]) else "..."
+            init_done = (step > j + 3 and i == 0)
+            status_class = "init-check" if init_done else "init-pending"
+            status_text = "✓ Initialized" if init_done else "○ Pending"
 
-def build_steps(parser, obj_idx):
-    """Build visualization steps for an object"""
-    if not parser or obj_idx >= len(parser.objects):
-        return []
-    
-    obj = parser.objects[obj_idx]
-    steps = []
-    
-    steps.append(f"1. Call {obj['name']} constructor")
-    steps.append("2. Enter constructor")
-    
-    if obj['args']:
-        if parser.ctor_params:
-            param_strs = []
-            for i, param in enumerate(parser.ctor_params):
-                if i < len(obj['args']):
-                    param_strs.append(f"{param} = {obj['args'][i]}")
-            steps.append(f"3. Pass arguments: {', '.join(param_strs)}")
-        else:
-            steps.append(f"3. Pass arguments: {', '.join(str(a) for a in obj['args'])}")
-    
-    for i, mem in enumerate(parser.members):
-        val = "?"
-        if i < len(obj['args']):
-            val = obj['args'][i]
-        elif mem in parser.member_to_param_map:
-            param = parser.member_to_param_map[mem]
-            if param in parser.ctor_params:
-                param_idx = parser.ctor_params.index(param)
-                if param_idx < len(obj['args']):
-                    val = obj['args'][param_idx]
-        
-        steps.append(f"4.{i+1} Initialize {mem} = {val}")
-    
-    steps.append(f"5. Constructor complete - {obj['name']} created")
-    
-    return steps
+            table_rows += f"""
+            <tr>
+                <td style="color:{text};">{private_members[j]}</td>
+                <td style="color:{value_color};">{value}</td>
+                <td><span class="{status_class}">{status_text}</span></td>
+            </tr>
+            """
 
-def next_step():
-    """Move to next step"""
-    if st.session_state.step < len(st.session_state.steps) - 1:
-        st.session_state.step += 1
-        # Add to console
-        step_text = st.session_state.steps[st.session_state.step]
-        if step_text not in st.session_state.console:
-            st.session_state.console.append(step_text)
-            if len(st.session_state.console) > 7:
-                st.session_state.console.pop(0)
-        
-        # Update member initialization
-        if st.session_state.parsed_data:
-            step_num = st.session_state.step
-            # Steps 3+ are member initializations (step 0: call, 1: enter, 2: args, then members)
-            if step_num >= 3 and step_num - 3 < len(st.session_state.parsed_data.members):
-                mem_idx = step_num - 3
-                if mem_idx < len(st.session_state.parsed_data.members):
-                    mem = st.session_state.parsed_data.members[mem_idx]
-                    st.session_state.initialized[st.session_state.current_obj][mem] = True
-            
-            # Last step marks object as created
-            if step_num == len(st.session_state.steps) - 1:
-                st.session_state.created[st.session_state.current_obj] = True
-                
-    elif st.session_state.current_obj < len(st.session_state.parsed_data.objects) - 1:
-        st.session_state.current_obj += 1
-        st.session_state.step = 0
-        st.session_state.console = []
-        st.session_state.steps = build_steps(
-            st.session_state.parsed_data, 
-            st.session_state.current_obj
-        )
-    else:
-        st.session_state.step = len(st.session_state.steps)
-        st.session_state.console.append("✓ Visualization complete!")
-
-def restart():
-    """Restart visualization"""
-    st.session_state.current_obj = 0
-    st.session_state.step = -1
-    st.session_state.auto_play = False
-    st.session_state.paused = False
-    st.session_state.console = []
-    if st.session_state.parsed_data:
-        st.session_state.steps = build_steps(st.session_state.parsed_data, 0)
-        st.session_state.created = [False] * len(st.session_state.parsed_data.objects)
-        st.session_state.initialized = [
-            {m: False for m in st.session_state.parsed_data.members} 
-            for _ in range(len(st.session_state.parsed_data.objects))
-        ]
-
-# ───────────────────────────────────────────────
-#                UI COMPONENTS
-# ───────────────────────────────────────────────
-
-def render_class_panel(parser):
-    """Render class information panel"""
-    st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.markdown(f"### 📦 Class {parser.class_name}")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("**🔒 private:**")
-        if parser.members:
-            for mem in parser.members[:7]:
-                typ = parser.member_types.get(mem, "?")
-                st.markdown(f"<span style='color: #ff7878;'>{typ} {mem};</span>", 
-                           unsafe_allow_html=True)
-        else:
-            st.markdown("<span style='color: #888;'>(No member variables found)</span>", 
-                       unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("**🔓 public:**")
-        if parser.ctor_params:
-            params = ", ".join(parser.ctor_params)
-            st.markdown(f"<span style='color: #78ff78;'>{parser.class_name}({params})</span>", 
-                       unsafe_allow_html=True)
-        else:
-            st.markdown(f"<span style='color: #78ff78;'>{parser.class_name}()</span>", 
-                       unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-
-def render_code_panel(parser, hl_line=None):
-    """Render code panel with optional highlighting"""
-    st.markdown('<div class="code-panel">', unsafe_allow_html=True)
-    st.markdown("### 📝 C++ Code")
-    
-    if parser.code_lines:
-        start_line = max(0, hl_line - 5) if hl_line is not None and hl_line >= 0 else 0
-        end_line = min(start_line + 15, len(parser.code_lines))
-        
-        for i in range(start_line, end_line):
-            line = parser.code_lines[i]
-            if i == hl_line:
-                st.markdown(f"<div class='hl-line'>{line}</div>", unsafe_allow_html=True)
-            else:
-                st.markdown(f"<div style='color: #a0a0ff;'>{line}</div>", unsafe_allow_html=True)
-    else:
-        st.markdown("<div style='color: #888;'>No code to display</div>", unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-
-def render_console_panel():
-    """Render console output panel"""
-    st.markdown('<div class="console-panel">', unsafe_allow_html=True)
-    st.markdown("### 📟 Console Output")
-    if st.session_state.console:
-        for line in st.session_state.console[-7:]:
-            st.markdown(f"<div>> {line}</div>", unsafe_allow_html=True)
-    else:
-        st.markdown("<div style='color: #666;'>> Waiting for steps...</div>", unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-def render_main_panel(parser, hl_line=None, in_ctor=False):
-    """Render main function panel"""
-    st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.markdown("### 🎯 Program Flow")
-    
-    # Arrow indicator
-    if in_ctor:
-        st.markdown("<div class='arrow-indicator'>➡️ Currently in constructor</div>", 
-                   unsafe_allow_html=True)
-    else:
-        st.markdown("<div class='arrow-indicator'>⬅️ Currently in main/global scope</div>", 
-                   unsafe_allow_html=True)
-    
-    if parser.main_lines:
-        for i, line in enumerate(parser.main_lines[:8]):
-            if i == hl_line:
-                st.markdown(f"<div class='hl-line'>{line}</div>", unsafe_allow_html=True)
-            else:
-                st.markdown(f"<div>{line}</div>", unsafe_allow_html=True)
-    else:
-        # Show object declarations
-        st.markdown("**Global Objects:**")
-        for obj in parser.objects:
-            args_str = ", ".join(str(a) for a in obj['args'])
-            st.markdown(f"<div>{parser.class_name} {obj['name']}({args_str});</div>", 
-                       unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-
-def render_object_panel(parser, idx, is_current):
-    """Render object visualization panel"""
-    obj = parser.objects[idx]
-    
-    panel_class = "object-panel"
-    if is_current:
-        panel_class += " current"
-    if st.session_state.created[idx]:
-        panel_class += " created"
-    
-    st.markdown(f'<div class="{panel_class}">', unsafe_allow_html=True)
-    st.markdown(f"### 🎯 Object: {obj['name']}")
-    
-    if st.session_state.created[idx]:
-        st.markdown("**✅ CREATED**")
-    
-    if parser.members:
-        for mem in parser.members[:6]:
-            init = st.session_state.initialized[idx].get(mem, False)
-            val = "?"
-            
-            # Find value
-            if mem in parser.member_to_param_map:
-                param = parser.member_to_param_map[mem]
-                if param in parser.ctor_params:
-                    param_idx = parser.ctor_params.index(param)
-                    if param_idx < len(obj['args']):
-                        val = obj['args'][param_idx]
-            elif mem in parser.ctor_params:
-                param_idx = parser.ctor_params.index(mem)
-                if param_idx < len(obj['args']):
-                    val = obj['args'][param_idx]
-            
-            if init:
-                st.markdown(f"<div class='member-init completed'>✓ {mem}: {val}</div>", 
-                           unsafe_allow_html=True)
-            else:
-                st.markdown(f"<div class='member-init'>○ {mem}: —</div>", 
-                           unsafe_allow_html=True)
-    else:
-        st.markdown("<div style='color: #666;'>(No member variables)</div>", unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-
-def render_step_info():
-    """Render step information"""
-    st.markdown('<div class="step-box">', unsafe_allow_html=True)
-    if (st.session_state.step >= 0 and 
-        st.session_state.step < len(st.session_state.steps)):
-        st.markdown(f"### ⚡ Step {st.session_state.step + 1}/{len(st.session_state.steps)}")
-        st.markdown(f"**{st.session_state.steps[st.session_state.step]}**")
-        if st.session_state.parsed_data:
-            obj = st.session_state.parsed_data.objects[st.session_state.current_obj]
-            st.markdown(f"📌 Object: {obj['name']}")
-    else:
-        st.markdown("### ▶️ Press SPACE or click Next to start")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-def render_progress():
-    """Render progress bar"""
-    if st.session_state.step >= 0 and st.session_state.steps:
-        progress = (st.session_state.step + 1) / len(st.session_state.steps)
-        st.markdown(f"""
-        <div class="progress-bar">
-            <div class="progress-fill" style="width: {progress*100}%;"></div>
+        objects_html += f"""
+        <div class="obj-card" style="background:{bg};border:2px solid {border};">
+            <div class="obj-title" style="color:{text};">
+                <span>{obj["name"]}</span>
+                {status_badge}
+            </div>
+            <table class="member-table">
+                <thead>
+                    <tr><th>Member</th><th>Value</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                    {table_rows}
+                </tbody>
+            </table>
         </div>
-        <div style="text-align: right; color: #ffff64;">{int(progress*100)}% Complete</div>
-        """, unsafe_allow_html=True)
+        """
 
-def render_debug_info():
-    """Render debug information"""
-    if st.session_state.debug_info and st.session_state.parse_error:
-        with st.expander("🔍 Debug Information"):
-            st.markdown('<div class="debug-box">', unsafe_allow_html=True)
-            for line in st.session_state.debug_info:
-                st.markdown(f"<div>{line}</div>", unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+    # parameter flow
+    parameter_html = ""
+    if 2 <= step <= 3 and objects:
+        pills = ""
+        for i, param in enumerate(constructor_params):
+            if i < len(objects[0]["params"]):
+                pills += f'<div class="parameter-pill">{param}: {objects[0]["params"][i]}</div>'
+        parameter_html = f"""
+        <div class="param-area">
+            <div class="param-row">{pills}</div>
+            <div class="arrow-animation">⬇️ ⬇️ ⬇️ PARAMETERS FLOWING TO CONSTRUCTOR ⬇️ ⬇️ ⬇️</div>
+        </div>
+        """
 
-# ───────────────────────────────────────────────
-#                     MAIN
-# ───────────────────────────────────────────────
+    # control flow
+    control_html = ""
+    if step > 0:
+        control_text = "⚡ CONTROL IN main() FUNCTION" if (step < 2 or step > 6) else "🔧 CONTROL INSIDE CONSTRUCTOR"
+        control_html = f'<div class="control-flow">{control_text}</div>'
+
+    # IMPORTANT: Include CSS INSIDE this HTML because components.html() is an iframe.
+    html = f"""
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <style>
+        body {{
+          margin: 0;
+          font-family: 'Segoe UI', Arial, sans-serif;
+          color: white;
+        }}
+
+        .wrapper {{
+          border: 4px solid #4CAF50;
+          border-radius: 20px;
+          padding: 25px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          box-shadow: 0 20px 30px rgba(0,0,0,0.3);
+        }}
+
+        .step-badge {{
+          background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+          color: black;
+          padding: 15px 25px;
+          border-radius: 50px;
+          font-weight: bold;
+          font-size: 22px;
+          text-align: center;
+          margin-bottom: 20px;
+          border: 2px solid white;
+        }}
+
+        .grid {{
+          display: flex;
+          gap: 25px;
+          margin-top: 10px;
+        }}
+
+        .class-box {{
+          background: #1E1E1E;
+          border-radius: 15px;
+          padding: 20px;
+          border: 3px solid #4CAF50;
+          box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+          flex: 1;
+        }}
+
+        .object-box {{
+          background: #2D2D2D;
+          border-radius: 15px;
+          padding: 20px;
+          border: 3px solid #FFD700;
+          box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+          flex: 1;
+        }}
+
+        .private-member {{
+          color: #FF6B6B;
+          font-size: 16px;
+          margin: 8px 0;
+          padding-left: 10px;
+          font-family: 'Courier New', monospace;
+        }}
+
+        .public-member {{
+          color: #6BFF6B;
+          font-size: 16px;
+          margin: 8px 0;
+          padding-left: 10px;
+          font-family: 'Courier New', monospace;
+        }}
+
+        .ctor-box {{
+          margin-top: 20px;
+          padding: 15px;
+          background: #2D2D2D;
+          border-radius: 10px;
+          border-left: 5px solid #FFD700;
+        }}
+        .ctor-title {{ color:#FFD700; margin:0 0 10px 0; }}
+        .ctor-line {{
+          color: white;
+          font-family: monospace;
+          margin: 5px 0;
+        }}
+
+        .obj-card {{
+          border-radius: 12px;
+          padding: 15px;
+          margin: 15px 0;
+          transition: all 0.3s;
+        }}
+        .obj-title {{
+          font-size: 20px;
+          font-weight: 700;
+          display:flex;
+          justify-content: space-between;
+          align-items:center;
+          margin-bottom: 10px;
+        }}
+
+        .status-badge {{
+          padding: 5px 12px;
+          border-radius: 20px;
+          font-size: 12px;
+          font-weight: 700;
+        }}
+        .creating-badge {{ background:#FFD700; color:black; }}
+        .created-badge {{ background:#4CAF50; color:white; }}
+
+        .member-table {{
+          width: 100%;
+          border-collapse: collapse;
+        }}
+        .member-table th {{
+          color: #FFD700;
+          text-align: left;
+          padding: 8px;
+          border-bottom: 2px solid #FFD700;
+        }}
+        .member-table td {{
+          padding: 8px;
+          border-bottom: 1px solid #444;
+        }}
+        .init-check {{ color:#4CAF50; font-weight: 800; }}
+        .init-pending {{ color:#BBB; }}
+
+        .param-area {{ margin-top: 25px; text-align:center; }}
+        .param-row {{
+          display:flex;
+          justify-content:center;
+          gap: 20px;
+          flex-wrap: wrap;
+          margin-bottom: 10px;
+        }}
+        .parameter-pill {{
+          background: linear-gradient(135deg, #FF6B6B 0%, #FF8E8E 100%);
+          color: white;
+          padding: 10px 18px;
+          border-radius: 30px;
+          font-weight: bold;
+          font-size: 16px;
+          border: 2px solid white;
+          box-shadow: 0 5px 10px rgba(0,0,0,0.2);
+          animation: bounce 1s infinite;
+        }}
+        @keyframes bounce {{
+          0%,100% {{ transform: translateY(0); }}
+          50% {{ transform: translateY(-8px); }}
+        }}
+
+        .arrow-animation {{
+          font-size: 18px;
+          color: #FFD700;
+          font-weight: 800;
+          margin-top: 6px;
+        }}
+
+        .control-flow {{
+          background: #2D2D2D;
+          padding: 12px;
+          border-radius: 50px;
+          text-align: center;
+          font-weight: bold;
+          font-size: 18px;
+          margin-top: 20px;
+          border: 3px solid #FFD700;
+          color: #FFD700;
+        }}
+      </style>
+    </head>
+    <body>
+      <div class="wrapper">
+        <div class="step-badge">Step {step + 1}/10: {current_text}</div>
+
+        <div class="grid">
+          <div class="class-box">
+            <h2 style="color:#4CAF50;margin-top:0;border-bottom:2px solid #4CAF50;padding-bottom:10px;">📦 {class_name} Class</h2>
+
+            <div style="margin:20px 0;">
+              <h3 style="color:#FF6B6B;margin:10px 0;">🔒 Private Members:</h3>
+              {private_members_html}
+            </div>
+
+            <div style="margin:20px 0;">
+              <h3 style="color:#6BFF6B;margin:10px 0;">🔓 Public Methods:</h3>
+              <div class="public-member">+ {class_name}({', '.join(constructor_params)})</div>
+              <div class="public-member">+ display()</div>
+            </div>
+
+            {constructor_body_html}
+          </div>
+
+          <div class="object-box">
+            <h2 style="color:#FFD700;margin-top:0;border-bottom:2px solid #FFD700;padding-bottom:10px;">🎯 Objects</h2>
+            {objects_html}
+          </div>
+        </div>
+
+        {parameter_html}
+        {control_html}
+      </div>
+    </body>
+    </html>
+    """
+    return html
+
 
 def main():
-    st.markdown('<h1 class="main-title">🔧 C++ Constructor Visualizer</h1>', 
-                unsafe_allow_html=True)
-    
-    # File upload
-    uploaded_file = st.file_uploader(
-        "📂 Choose a C++ file", 
-        type=['cpp', 'h', 'hpp', 'cxx', 'cc'],
-        help="Upload any C++ file containing a class and object declarations"
-    )
-    
-    # Example code button
-    col1, col2 = st.columns([3, 1])
-    with col2:
-        if st.button("📋 Load Example", use_container_width=True):
-            example_code = """#include <iostream>
+    # Header
+    st.markdown("""
+    <div class="main-title">
+        <h1>🎮 C++ Constructor Visualizer</h1>
+        <p>Visualize Parameterized Constructors Step by Step</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Sidebar
+    with st.sidebar:
+        st.markdown("## 📋 Instructions")
+        st.info("""
+        1. **Paste your C++ code** in the text area  
+        2. **Click 'Generate Animation'** to parse  
+        3. **Use controls** to step through execution  
+        4. **Watch** as parameters are passed and members initialized
+        """)
+        st.markdown("---")
+        st.markdown("## 🎯 Sample Codes")
+
+        if st.button("📚 Student Class Example", use_container_width=True):
+            st.session_state.sample = '''#include <iostream>
 #include <string>
 using namespace std;
 
-class Person {
+class Student {
 private:
     string name;
     int age;
-    double height;
-    string city;
+    string major;
+
 public:
-    Person(string n, int a, double h, string c) {
+    Student(string n, int a, string m) {
         name = n;
         age = a;
-        height = h;
-        city = c;
+        major = m;
     }
-    
+
     void display() {
-        cout << name << " is " << age << " years old, " 
-             << height << "m tall, from " << city << endl;
+        cout << "Name: " << name << ", Age: " << age << ", Major: " << major << endl;
     }
 };
 
 int main() {
-    Person p1("Alice", 25, 1.75, "New York");
-    p1.display();
-    
-    Person p2("Bob", 30, 1.85, "London");
-    p2.display();
-    
+    Student student1("Ali Raza", 20, "Computer Science");
+    student1.display();
     return 0;
-}"""
-            st.session_state.code = example_code
-            parser = parse_code(example_code)
-            if parser:
-                st.session_state.parsed_data = parser
-                st.session_state.steps = build_steps(parser, 0)
-                st.session_state.created = [False] * len(parser.objects)
-                st.session_state.initialized = [
-                    {m: False for m in parser.members} 
-                    for _ in range(len(parser.objects))
-                ]
-                st.session_state.parse_error = None
+}'''
+            st.rerun()
+
+    # Main content
+    col1, col2 = st.columns([3, 2])
+
+    with col1:
+        st.markdown("### 📝 Enter Your C++ Code")
+
+        default_code = st.session_state.sample or '''#include <iostream>
+#include <string>
+using namespace std;
+
+class Student {
+private:
+    string name;
+    int age;
+    string major;
+
+public:
+    Student(string n, int a, string m) {
+        name = n;
+        age = a;
+        major = m;
+    }
+
+    void display() {
+        cout << "Name: " << name << ", Age: " << age << ", Major: " << major << endl;
+    }
+};
+
+int main() {
+    Student student1("Ali Raza", 20, "Computer Science");
+    student1.display();
+    return 0;
+}'''
+
+        cpp_code = st.text_area(
+            "##",
+            value=default_code,
+            height=300,
+            key="code_input",
+            label_visibility="collapsed"
+        )
+
+        if st.button("🎬 Generate Animation", use_container_width=True):
+            parser = CPPCodeParser()
+            parsed = parser.parse(cpp_code)
+            st.session_state.parsed_data = parsed
+            st.session_state.step = 0
+            st.session_state.auto_play = False
+            st.session_state.show_animation = True
+
+    with col2:
+        st.markdown("### 📊 Analysis")
+        if st.session_state.parsed_data and not st.session_state.parsed_data.get("error"):
+            data = st.session_state.parsed_data
+            st.markdown(f"""
+            <div class="success-box">
+                <h4>✅ Code Parsed Successfully!</h4>
+                <p><b>Class:</b> {data.get('class_name', 'N/A')}</p>
+                <p><b>Private Members:</b> {len(data.get('private_members', []))}</p>
+                <p><b>Constructor Params:</b> {len(data.get('constructor_params', []))}</p>
+                <p><b>Objects Found:</b> {len(data.get('objects', []))}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        elif st.session_state.parsed_data and st.session_state.parsed_data.get("error"):
+            st.error(f"❌ {st.session_state.parsed_data['error']}")
+
+    # Animation Player
+    if st.session_state.show_animation and st.session_state.parsed_data and not st.session_state.parsed_data.get("error"):
+        st.markdown("---")
+        st.markdown("## 🎬 Animation Player")
+
+        c1, c2, c3, c4, c5 = st.columns(5)
+        with c1:
+            if st.button("⏮️ First", use_container_width=True):
+                st.session_state.step = 0
+                st.session_state.auto_play = False
                 st.rerun()
-    
-    if uploaded_file is not None:
-        code = uploaded_file.getvalue().decode("utf-8")
-        st.session_state.code = code
-        
-        with st.spinner("Parsing C++ code..."):
-            parser = parse_code(code)
-            if parser:
-                st.session_state.parsed_data = parser
-                st.session_state.steps = build_steps(parser, 0)
-                st.session_state.created = [False] * len(parser.objects)
-                st.session_state.initialized = [
-                    {m: False for m in parser.members} 
-                    for _ in range(len(parser.objects))
-                ]
-                st.session_state.parse_error = None
-                st.success(f"✅ Successfully parsed! Found class '{parser.class_name}' with {len(parser.objects)} objects.")
-            else:
-                st.session_state.parse_error = st.session_state.parse_error or "Failed to parse code"
-    
-    # Show error if any
-    if st.session_state.parse_error:
-        st.markdown(f"""
-        <div class="error-box">
-            ❌ Error: {st.session_state.parse_error}<br>
-            Please check your C++ syntax and try again.
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Show debug info
-        render_debug_info()
-    
-    if st.session_state.parsed_data:
-        parser = st.session_state.parsed_data
-        
-        # Controls
-        col1, col2, col3, col4, col5 = st.columns(5)
-        with col1:
-            if st.button("⏭️ Next", key="next", use_container_width=True):
-                next_step()
+        with c2:
+            if st.button("⏪ Prev", use_container_width=True):
+                st.session_state.step = max(0, st.session_state.step - 1)
+                st.session_state.auto_play = False
                 st.rerun()
-        with col2:
-            if st.button("🔄 Restart", key="restart", use_container_width=True):
-                restart()
-                st.rerun()
-        with col3:
-            auto_text = "⏸️ Pause" if st.session_state.auto_play else "▶️ Auto"
-            if st.button(auto_text, key="auto", use_container_width=True):
+        with c3:
+            play_text = "⏸️ Pause" if st.session_state.auto_play else "▶️ Play"
+            if st.button(play_text, use_container_width=True):
                 st.session_state.auto_play = not st.session_state.auto_play
                 st.rerun()
-        with col4:
-            pause_text = "▶️ Resume" if st.session_state.paused else "⏸️ Pause"
-            if st.button(pause_text, key="pause", use_container_width=True):
-                st.session_state.paused = not st.session_state.paused
+        with c4:
+            if st.button("⏩ Next", use_container_width=True):
+                st.session_state.step = min(9, st.session_state.step + 1)
+                st.session_state.auto_play = False
                 st.rerun()
-        with col5:
-            if st.button("📁 New File", key="new", use_container_width=True):
-                st.session_state.parsed_data = None
-                st.session_state.code = ""
-                st.session_state.steps = []
-                st.session_state.parse_error = None
-                st.session_state.debug_info = []
+        with c5:
+            if st.button("⏭️ Last", use_container_width=True):
+                st.session_state.step = 9
+                st.session_state.auto_play = False
                 st.rerun()
-        
-        # Progress
-        render_progress()
-        
-        # Main layout
-        col1, col2 = st.columns([1, 1])
-        
-        with col1:
-            render_class_panel(parser)
-            render_console_panel()
-        
-        with col2:
-            hl_line = None
-            in_ctor = False
-            
-            if 0 <= st.session_state.step < len(st.session_state.steps):
-                step_text = st.session_state.steps[st.session_state.step]
-                if "enter" in step_text.lower():
-                    in_ctor = True
-                    # Find constructor line
-                    for i, line in enumerate(parser.code_lines):
-                        if parser.class_name in line and '(' in line and ')' in line:
-                            if 'class' not in line.lower():
-                                hl_line = i
-                                break
-                elif "call" in step_text.lower():
-                    # Find object declaration line
-                    obj = parser.objects[st.session_state.current_obj]
-                    for i, line in enumerate(parser.code_lines):
-                        if obj['name'] in line and parser.class_name in line:
-                            hl_line = i
-                            break
-            
-            render_code_panel(parser, hl_line)
-            render_main_panel(parser, hl_line, in_ctor)
-        
-        # Objects
-        st.markdown("### 📦 Objects")
-        obj_cols = st.columns(2)
-        for i in range(min(2, len(parser.objects))):
-            with obj_cols[i]:
-                render_object_panel(parser, i, i == st.session_state.current_obj)
-        
-        # Step info
-        render_step_info()
-        
-        # Help text
-        st.markdown("""
-        <div style="background-color: #28283c; padding: 15px; border-radius: 10px; margin-top: 20px;">
-            <span style="color: #ffff64; font-weight: bold;">⌨️ Keyboard Shortcuts:</span><br>
-            • <kbd>Space</kbd> - Next step<br>
-            • <kbd>R</kbd> - Restart<br>
-            • <kbd>A</kbd> - Toggle auto-play<br>
-            • <kbd>P</kbd> - Pause/Resume
-        </div>
-        """, unsafe_allow_html=True)
-        
+
+        st.progress((st.session_state.step + 1) / 10, text=f"**Step {st.session_state.step + 1}/10**")
+
+        # ✅ Render animation HTML correctly (no raw HTML text)
+        html_anim = create_animation_html(st.session_state.step, st.session_state.parsed_data)
+        components.html(html_anim, height=720, scrolling=True)
+
         # Auto-play
-        if st.session_state.auto_play and not st.session_state.paused:
-            if st.session_state.step < len(st.session_state.steps) - 1:
-                time.sleep(1.5)
-                next_step()
+        if st.session_state.auto_play:
+            if st.session_state.step < 9:
+                time.sleep(1.2)
+                st.session_state.step += 1
                 st.rerun()
+            else:
+                st.session_state.auto_play = False
+                st.balloons()
+
+    st.markdown("---")
+    st.markdown("""
+    <div class="footer">
+        Made with ❤️ for C++ Students | Step-by-Step Constructor Visualization
+    </div>
+    """, unsafe_allow_html=True)
+
 
 if __name__ == "__main__":
     main()
