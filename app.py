@@ -21,6 +21,29 @@ st.set_page_config(
 # Custom CSS for better styling
 st.markdown("""
 <style>
+    /* Main container styles */
+    .main-title {
+        text-align: center;
+        padding: 30px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        margin-bottom: 30px;
+        box-shadow: 0 20px 30px rgba(0,0,0,0.3);
+    }
+    .main-title h1 {
+        color: white;
+        font-size: 52px;
+        margin: 0;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    .main-title p {
+        color: #FFD700;
+        font-size: 24px;
+        margin: 10px 0 0 0;
+        font-weight: bold;
+    }
+    
+    /* Button styles */
     .stButton > button {
         width: 100%;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -36,6 +59,8 @@ st.markdown("""
         transform: scale(1.02);
         box-shadow: 0 10px 20px rgba(0,0,0,0.2);
     }
+    
+    /* Text area styles */
     .stTextArea textarea {
         font-family: 'Courier New', monospace;
         font-size: 14px;
@@ -44,6 +69,8 @@ st.markdown("""
         background: #1E1E1E;
         color: #FFD700;
     }
+    
+    /* Success box */
     .success-box {
         padding: 20px;
         border-radius: 15px;
@@ -53,7 +80,9 @@ st.markdown("""
         box-shadow: 0 10px 20px rgba(0,0,0,0.1);
         font-size: 16px;
     }
-    .animation-container {
+    
+    /* Animation container */
+    .animation-wrapper {
         border: 4px solid #4CAF50;
         border-radius: 20px;
         padding: 25px;
@@ -61,6 +90,8 @@ st.markdown("""
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         box-shadow: 0 20px 30px rgba(0,0,0,0.3);
     }
+    
+    /* Class box */
     .class-box {
         background: #1E1E1E;
         border-radius: 15px;
@@ -70,6 +101,8 @@ st.markdown("""
         margin: 10px;
         box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     }
+    
+    /* Object box */
     .object-box {
         background: #2D2D2D;
         border-radius: 15px;
@@ -79,6 +112,8 @@ st.markdown("""
         margin: 10px;
         box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     }
+    
+    /* Step badge */
     .step-badge {
         background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
         color: black;
@@ -91,6 +126,8 @@ st.markdown("""
         box-shadow: 0 10px 20px rgba(0,0,0,0.2);
         border: 2px solid white;
     }
+    
+    /* Member styles */
     .private-member {
         color: #FF6B6B;
         font-size: 16px;
@@ -98,6 +135,7 @@ st.markdown("""
         padding-left: 25px;
         font-family: 'Courier New', monospace;
     }
+    
     .public-member {
         color: #6BFF6B;
         font-size: 16px;
@@ -105,6 +143,8 @@ st.markdown("""
         padding-left: 25px;
         font-family: 'Courier New', monospace;
     }
+    
+    /* Parameter pill */
     .parameter-pill {
         background: linear-gradient(135deg, #FF6B6B 0%, #FF8E8E 100%);
         color: white;
@@ -118,10 +158,13 @@ st.markdown("""
         border: 2px solid white;
         box-shadow: 0 5px 10px rgba(0,0,0,0.2);
     }
+    
     @keyframes bounce {
         0%, 100% { transform: translateY(0); }
         50% { transform: translateY(-10px); }
     }
+    
+    /* Arrow animation */
     .arrow-animation {
         font-size: 40px;
         color: #FFD700;
@@ -129,11 +172,14 @@ st.markdown("""
         text-align: center;
         margin: 20px;
     }
+    
     @keyframes moveArrow {
         0% { transform: translateX(0); }
         50% { transform: translateX(20px); }
         100% { transform: translateX(0); }
     }
+    
+    /* Control flow */
     .control-flow {
         background: #2D2D2D;
         padding: 15px;
@@ -145,6 +191,8 @@ st.markdown("""
         border: 3px solid #FFD700;
         color: #FFD700;
     }
+    
+    /* Status badges */
     .status-badge {
         float: right;
         padding: 5px 15px;
@@ -152,35 +200,51 @@ st.markdown("""
         font-size: 14px;
         font-weight: normal;
     }
+    
     .creating-badge {
         background: #FFD700;
         color: black;
     }
+    
     .created-badge {
         background: #4CAF50;
         color: white;
     }
+    
+    /* Member table */
     .member-table {
         width: 100%;
         margin-top: 15px;
         border-collapse: collapse;
     }
+    
     .member-table th {
         color: #FFD700;
         text-align: left;
         padding: 8px;
         border-bottom: 2px solid #FFD700;
     }
+    
     .member-table td {
         padding: 8px;
         border-bottom: 1px solid #444;
     }
+    
     .init-check {
         color: #4CAF50;
         font-weight: bold;
     }
+    
     .init-pending {
         color: #888;
+    }
+    
+    /* Footer */
+    .footer {
+        text-align: center;
+        color: #888;
+        padding: 20px;
+        font-size: 16px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -192,6 +256,8 @@ if 'parsed_data' not in st.session_state:
     st.session_state.parsed_data = None
 if 'auto_play' not in st.session_state:
     st.session_state.auto_play = False
+if 'show_animation' not in st.session_state:
+    st.session_state.show_animation = False
 
 class CPPCodeParser:
     def __init__(self):
@@ -272,9 +338,9 @@ def create_animation_html(step, parsed_data):
         "📌 main() calls constructor",
         "⚡ Control transfers to constructor",
         "📦 Parameters are being passed",
-        "🔧 Initializing: " + (private_members[0] if private_members else "name"),
-        "🔧 Initializing: " + (private_members[1] if len(private_members) > 1 else "age"),
-        "🔧 Initializing: " + (private_members[2] if len(private_members) > 2 else "major"),
+        f"🔧 Initializing: {private_members[0] if private_members else 'name'}",
+        f"🔧 Initializing: {private_members[1] if len(private_members) > 1 else 'age'}",
+        f"🔧 Initializing: {private_members[2] if len(private_members) > 2 else 'major'}",
         "✅ Constructor completes",
         "🔄 Control returns to main()",
         "📢 display() method called",
@@ -283,7 +349,91 @@ def create_animation_html(step, parsed_data):
     
     current_text = step_texts[step] if step < len(step_texts) else "Complete!"
     
-    # Build HTML animation as a proper HTML string
+    # Build private members HTML
+    private_members_html = ""
+    for member in private_members:
+        private_members_html += f'<div class="private-member">• {member}</div>'
+    
+    # Build constructor body HTML
+    constructor_body_html = ""
+    if 2 <= step <= 6:
+        constructor_body_html = '<div style="margin-top: 25px; padding: 15px; background: #2D2D2D; border-radius: 10px; border-left: 5px solid #FFD700;">'
+        constructor_body_html += '<h4 style="color: #FFD700; margin: 0 0 10px 0;">⚙️ Constructor Execution:</h4>'
+        for i, member in enumerate(private_members):
+            if i < len(constructor_params):
+                constructor_body_html += f'<div style="color: white; font-family: monospace; margin: 5px 0;">{member} = {constructor_params[i]};</div>'
+        constructor_body_html += '</div>'
+    
+    # Build objects HTML
+    objects_html = ""
+    for i, obj in enumerate(objects):
+        bg_color = "#FFD700" if i == 0 and step < 7 else "#363636"
+        text_color = "black" if i == 0 and step < 7 else "#FFD700"
+        border_color = "#FFD700" if i == 0 and step < 7 else "#666"
+        
+        # Status badge
+        status_badge = ""
+        if i == 0:
+            if 1 <= step <= 6:
+                status_badge = '<span class="status-badge creating-badge">⚡ CREATING</span>'
+            elif step >= 7:
+                status_badge = '<span class="status-badge created-badge">✓ CREATED</span>'
+        
+        # Build table rows
+        table_rows = ""
+        for j in range(min(3, len(private_members))):
+            value = obj['params'][j] if j < len(obj['params']) else "..."
+            status_class = "init-check" if step > j + 3 and i == 0 else "init-pending"
+            status_text = "✓ Initialized" if step > j + 3 and i == 0 else "○ Pending"
+            
+            table_rows += f'''
+            <tr>
+                <td style="color: {text_color};">{private_members[j]}</td>
+                <td style="color: {"black" if i == 0 and step < 7 else "white"};">{value}</td>
+                <td><span class="{status_class}">{status_text}</span></td>
+            </tr>
+            '''
+        
+        objects_html += f'''
+        <div style="background: {bg_color}; border-radius: 12px; padding: 15px; margin: 15px 0; border: 2px solid {border_color}; transition: all 0.3s;">
+            <h3 style="color: {text_color}; margin: 0 0 10px 0; display: flex; justify-content: space-between; align-items: center;">
+                <span>{obj['name']}</span>
+                {status_badge}
+            </h3>
+            <table class="member-table">
+                <tr>
+                    <th>Member</th>
+                    <th>Value</th>
+                    <th>Status</th>
+                </tr>
+                {table_rows}
+            </table>
+        </div>
+        '''
+    
+    # Build parameter passing HTML
+    parameter_html = ""
+    if 2 <= step <= 3 and objects:
+        parameter_html = '''
+        <div style="margin-top: 30px; text-align: center;">
+            <div style="display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; margin-bottom: 20px;">
+        '''
+        for i, param in enumerate(constructor_params):
+            if i < len(objects[0]['params']):
+                parameter_html += f'<div class="parameter-pill">{param}: {objects[0]["params"][i]}</div>'
+        parameter_html += '''
+            </div>
+            <div class="arrow-animation">⬇️ ⬇️ ⬇️ PARAMETERS FLOWING TO CONSTRUCTOR ⬇️ ⬇️ ⬇️</div>
+        </div>
+        '''
+    
+    # Build control flow HTML
+    control_html = ""
+    if step > 0:
+        control_text = "⚡ CONTROL IN main() FUNCTION" if step < 2 or step > 6 else "🔧 CONTROL INSIDE CONSTRUCTOR"
+        control_html = f'<div class="control-flow">{control_text}</div>'
+    
+    # Combine all HTML
     html = f'''
     <div style="font-family: 'Segoe UI', Arial, sans-serif; color: white;">
         <!-- Step Indicator -->
@@ -301,7 +451,7 @@ def create_animation_html(step, parsed_data):
                 
                 <div style="margin: 20px 0;">
                     <h3 style="color: #FF6B6B; margin: 10px 0;">🔒 Private Members:</h3>
-                    {''.join([f'<div class="private-member">• {member}</div>' for member in private_members])}
+                    {private_members_html}
                 </div>
                 
                 <div style="margin: 20px 0;">
@@ -310,14 +460,7 @@ def create_animation_html(step, parsed_data):
                     <div class="public-member">+ display()</div>
                 </div>
                 
-                <!-- Constructor Body (visible during initialization) -->
-                {f'''
-                <div style="margin-top: 25px; padding: 15px; background: #2D2D2D; border-radius: 10px; border-left: 5px solid #FFD700;">
-                    <h4 style="color: #FFD700; margin: 0 0 10px 0;">⚙️ Constructor Execution:</h4>
-                    {''.join([f'<div style="color: white; font-family: monospace; margin: 5px 0;">{member} = {constructor_params[i]};</div>' 
-                             for i, member in enumerate(private_members)])}
-                </div>
-                ''' if 2 <= step <= 6 else ''}
+                {constructor_body_html}
             </div>
             
             <!-- Objects Area -->
@@ -325,70 +468,12 @@ def create_animation_html(step, parsed_data):
                 <h2 style="color: #FFD700; margin-top: 0; border-bottom: 2px solid #FFD700; padding-bottom: 10px;">
                     🎯 Objects
                 </h2>
-                
-                {''.join([f'''
-                <div style="background: {'#FFD700' if i == 0 and step < 7 else '#363636'}; 
-                            border-radius: 12px; 
-                            padding: 15px; 
-                            margin: 15px 0;
-                            border: 2px solid {'#FFD700' if i == 0 and step < 7 else '#666'};
-                            transition: all 0.3s;">
-                    <h3 style="color: {'black' if i == 0 and step < 7 else '#FFD700'}; 
-                               margin: 0 0 10px 0;
-                               display: flex;
-                               justify-content: space-between;
-                               align-items: center;">
-                        <span>{obj['name']}</span>
-                        {f'<span class="status-badge creating-badge">⚡ CREATING</span>' if i == 0 and 1 <= step <= 6 else ''}
-                        {f'<span class="status-badge created-badge">✓ CREATED</span>' if i == 0 and step >= 7 else ''}
-                    </h3>
-                    
-                    <table class="member-table">
-                        <tr>
-                            <th>Member</th>
-                            <th>Value</th>
-                            <th>Status</th>
-                        </tr>
-                        {''.join([f'''
-                        <tr>
-                            <td style="color: {'black' if i == 0 and step < 7 else '#FFD700'};">
-                                {private_members[j] if j < len(private_members) else f'param{j}'}
-                            </td>
-                            <td style="color: {'black' if i == 0 and step < 7 else 'white'};">
-                                {obj['params'][j] if j < len(obj['params']) else '...'}
-                            </td>
-                            <td>
-                                <span class="{'init-check' if step > j + 3 and i == 0 else 'init-pending'}">
-                                    {'✓ Initialized' if step > j + 3 and i == 0 else '○ Pending'}
-                                </span>
-                            </td>
-                        </tr>
-                        ''' for j in range(min(3, len(private_members)))])}
-                    </table>
-                </div>
-                ''' for i, obj in enumerate(objects)])}
+                {objects_html}
             </div>
         </div>
         
-        <!-- Parameter Passing Animation -->
-        {f'''
-        <div style="margin-top: 30px; text-align: center;">
-            <div style="display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; margin-bottom: 20px;">
-                {''.join([f'<div class="parameter-pill">{param}: {objects[0]["params"][i] if objects and i < len(objects[0]["params"]) else "..."}</div>' 
-                         for i, param in enumerate(constructor_params)])}
-            </div>
-            <div class="arrow-animation">
-                ⬇️ ⬇️ ⬇️  PARAMETERS FLOWING TO CONSTRUCTOR  ⬇️ ⬇️ ⬇️
-            </div>
-        </div>
-        ''' if 2 <= step <= 3 else ''}
-        
-        <!-- Control Flow Indicator -->
-        {f'''
-        <div class="control-flow">
-            {'⚡ CONTROL IN main() FUNCTION' if step < 2 or step > 6 else '🔧 CONTROL INSIDE CONSTRUCTOR'}
-        </div>
-        ''' if step > 0 else ''}
+        {parameter_html}
+        {control_html}
     </div>
     '''
     
@@ -397,14 +482,9 @@ def create_animation_html(step, parsed_data):
 def main():
     # Header
     st.markdown("""
-    <div style="text-align: center; padding: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                border-radius: 20px; margin-bottom: 30px; box-shadow: 0 20px 30px rgba(0,0,0,0.3);">
-        <h1 style="color: white; font-size: 52px; margin: 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
-            🎮 C++ Constructor Visualizer
-        </h1>
-        <p style="color: #FFD700; font-size: 24px; margin: 10px 0 0 0; font-weight: bold;">
-            Visualize Parameterized Constructors Step by Step
-        </p>
+    <div class="main-title">
+        <h1>🎮 C++ Constructor Visualizer</h1>
+        <p>Visualize Parameterized Constructors Step by Step</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -440,7 +520,7 @@ public:
     }
     
     void display() {
-        cout << name << ", " << age << ", " << major << endl;
+        cout << "Name: " << name << ", Age: " << age << ", Major: " << major << endl;
     }
 };
 
@@ -487,10 +567,11 @@ int main() {
 }''')
         
         cpp_code = st.text_area(
-            "",
+            "##",
             value=default_code,
             height=300,
-            key="code_input"
+            key="code_input",
+            label_visibility="collapsed"
         )
         
         if st.button("🎬 Generate Animation", use_container_width=True):
@@ -499,6 +580,7 @@ int main() {
             st.session_state.parsed_data = parsed
             st.session_state.step = 0
             st.session_state.auto_play = False
+            st.session_state.show_animation = True
     
     with col2:
         st.markdown("### 📊 Analysis")
@@ -517,7 +599,7 @@ int main() {
             st.error(f"❌ {st.session_state.parsed_data['error']}")
     
     # Animation Player
-    if st.session_state.parsed_data and not st.session_state.parsed_data.get('error'):
+    if st.session_state.get('show_animation', False) and st.session_state.parsed_data and not st.session_state.parsed_data.get('error'):
         st.markdown("---")
         st.markdown("## 🎬 Animation Player")
         
@@ -548,9 +630,15 @@ int main() {
         st.progress((st.session_state.step + 1) / 10, 
                    text=f"**Step {st.session_state.step + 1}/10**")
         
-        # Animation display - Use st.markdown with unsafe_allow_html=True
+        # Animation display - Use a unique key for the container
         html_anim = create_animation_html(st.session_state.step, st.session_state.parsed_data)
-        st.markdown(f'<div class="animation-container">{html_anim}</div>', unsafe_allow_html=True)
+        
+        # Wrap in a div with a unique class and use markdown with unsafe_allow_html
+        st.markdown(f'''
+        <div class="animation-wrapper" key="anim_{st.session_state.step}">
+            {html_anim}
+        </div>
+        ''', unsafe_allow_html=True)
         
         # Auto-play logic
         if st.session_state.auto_play:
@@ -565,7 +653,7 @@ int main() {
     # Footer
     st.markdown("---")
     st.markdown("""
-    <div style="text-align: center; color: #888; padding: 20px; font-size: 16px;">
+    <div class="footer">
         Made with ❤️ for C++ Students | Step-by-Step Constructor Visualization
     </div>
     """, unsafe_allow_html=True)
