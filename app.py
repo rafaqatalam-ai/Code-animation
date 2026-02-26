@@ -106,99 +106,69 @@ class CPPCodeParser:
         self.error = None
 
     def parse(self, code: str):
-    try:
-        # Reset
-        self.class_name = ""
-        self.private_members = []
-        self.constructor_params = []
-        self.objects = []
-        self.error = None
-
-        # 1) Remove comments (so // and /* */ don't break regex)
-        code_no_comments = re.sub(r'//.*', '', code)
-        code_no_comments = re.sub(r'/\*.*?\*/', '', code_no_comments, flags=re.DOTALL)
-
-        # 2) Extract class name
-        class_match = re.search(r'\bclass\s+(\w+)\b', code_no_comments)
-        if not class_match:
-            return {"error": "No class found. Please include a C++ class definition."}
-        self.class_name = class_match.group(1)
-
-        # 3) Extract private members (simple: type name;)
-        private_section = re.search(r'private:\s*(.*?)(?=public:|protected:|};)', code_no_comments, re.DOTALL)
-        if private_section:
-            private_text = private_section.group(1)
-            # allow types like: unsigned int count;
-            members = re.findall(r'\b([\w:<>]+(?:\s+[\w:<>]+)*)\s+(\w+)\s*;', private_text)
-            self.private_members = [name for _typ, name in members]
-
-        # 4) Extract constructor parameters:
-        # Match: ClassName( ... ) { ... }
-        # Also match: ClassName( ... ) : initlist { ... }
-        ctor_match = re.search(
-            rf'\b{re.escape(self.class_name)}\s*\((.*?)\)\s*(?::[^\{{]]*)?\{{',
-            code_no_comments,
-            re.DOTALL
-        )
-        if ctor_match:
-            params_text = ctor_match.group(1).strip()
-            if params_text:
-                raw_params = [p.strip() for p in params_text.split(",")]
-                params = []
-                for p in raw_params:
-                    p = p.split("=")[0].strip()  # remove default values
-                    # pick last identifier as param name
-                    m = re.findall(r'(\w+)\s*$', p)
-                    if m:
-                        params.append(m[-1])
-                self.constructor_params = params
-            else:
-                self.constructor_params = []
-        else:
+        try:
+            # Reset
+            self.class_name = ""
+            self.private_members = []
             self.constructor_params = []
+            self.objects = []
+            self.error = None
 
-        # 5) Extract objects created inside main()
-        main_match = re.search(r'\bint\s+main\s*\([^)]*\)\s*\{(.*)\}\s*$', code_no_comments, re.DOTALL)
-        if main_match:
-            main_body = main_match.group(1)
+            # Extract class name
+            class_match = re.search(r'\bclass\s+(\w+)\b', code)
+            if class_match:
+                self.class_name = class_match.group(1)
+            else:
+                return {"error": "No class found. Please include a C++ class definition."}
 
-            # 5a) Pattern A: ClassName obj(arg1, arg2);
-            pat_params = rf'\b{re.escape(self.class_name)}\s+(\w+)\s*\((.*?)\)\s*;'
-            for obj_name, params_str in re.findall(pat_params, main_body, re.DOTALL):
-                raw = [p.strip() for p in params_str.split(",")] if params_str.strip() else []
-                cleaned = [p.strip().strip('"').strip("'") for p in raw]
-                self.objects.append({"name": obj_name, "params": cleaned})
+            # Extract private members (basic)
+            private_section = re.search(r'private:\s*(.*?)(?=public:|protected:|};)', code, re.DOTALL)
+            if private_section:
+                private_text = private_section.group(1)
+                members = re.findall(r'\b(\w+)\s+(\w+)\s*;', private_text)
+                self.private_members = [name for _typ, name in members]
 
-            # 5b) Pattern B: ClassName a, b, c;
-            # But NOT when it already matched Pattern A (those have parentheses)
-            # We'll scan statements ending with ';'
-            stmt_pat = rf'\b{re.escape(self.class_name)}\s+([^;]+);'
-            for decl in re.findall(stmt_pat, main_body):
-                # skip if it contains '(' because that is Pattern A
-                if '(' in decl or ')' in decl:
-                    continue
+            # Extract constructor params (IMPORTANT FIX: match ClassName(...), not main(...))
+            ctor_match = re.search(rf'\b{re.escape(self.class_name)}\s*\((.*?)\)\s*(?::[^\{{]]*)?\{{', code, re.DOTALL)
+            if ctor_match:
+                params_text = ctor_match.group(1).strip()
+                if params_text:
+                    # naive param capture: take last identifier in each comma-separated param
+                    raw_params = [p.strip() for p in params_text.split(",")]
+                    params = []
+                    for p in raw_params:
+                        # remove default values
+                        p = p.split("=")[0].strip()
+                        m = re.findall(r'(\w+)\s*$', p)
+                        if m:
+                            params.append(m[-1])
+                    self.constructor_params = params
 
-                # decl example: "c1, c2" or "c1 = something, c2"
-                parts = [p.strip() for p in decl.split(",")]
-                for part in parts:
-                    # capture name before optional = initializer
-                    m = re.match(r'^(\w+)\b', part)
-                    if m:
-                        name = m.group(1)
-                        # avoid duplicates (if any)
-                        if not any(o["name"] == name for o in self.objects):
-                            self.objects.append({"name": name, "params": []})
+            # Extract object creations in main (basic pattern: ClassName obj(...);)
+            main_section = re.search(r'\bint\s+main\s*\(.*?\)\s*\{(.*)\}', code, re.DOTALL)
+            if main_section:
+                main_text = main_section.group(1)
+                obj_pattern = rf'\b{re.escape(self.class_name)}\s+(\w+)\s*\((.*?)\)\s*;'
+                objects = re.findall(obj_pattern, main_text, re.DOTALL)
 
-        return {
-            "class_name": self.class_name,
-            "private_members": self.private_members,
-            "constructor_params": self.constructor_params,
-            "objects": self.objects,
-            "error": None
-        }
+                for obj_name, params_str in objects:
+                    # Split by commas (simple)
+                    raw = [p.strip() for p in params_str.split(",")] if params_str.strip() else []
+                    # Strip quotes for display
+                    cleaned = [p.strip().strip('"').strip("'") for p in raw]
+                    self.objects.append({"name": obj_name, "params": cleaned})
 
-    except Exception as e:
-        return {"error": str(e)}
+            return {
+                "class_name": self.class_name,
+                "private_members": self.private_members,
+                "constructor_params": self.constructor_params,
+                "objects": self.objects,
+                "error": None
+            }
+
+        except Exception as e:
+            return {"error": str(e)}
+
 
 def create_animation_html(step: int, parsed_data: dict) -> str:
     """Return FULL HTML (with CSS) for components.html() rendering."""
