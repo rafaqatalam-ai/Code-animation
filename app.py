@@ -38,6 +38,8 @@ st.markdown("""
         font-size: 14px;
         color: #a0a0ff;
         border: 2px solid #78ff78;
+        max-height: 400px;
+        overflow-y: auto;
     }
     .console-panel {
         background-color: #14141e;
@@ -87,6 +89,7 @@ st.markdown("""
         background-color: #46465a;
         border-radius: 10px;
         overflow: hidden;
+        margin: 10px 0;
     }
     .progress-fill {
         height: 100%;
@@ -102,6 +105,7 @@ st.markdown("""
         margin: 5px;
         cursor: pointer;
         font-size: 16px;
+        width: 100%;
     }
     .control-button:hover {
         background-color: #4a4a6a;
@@ -111,11 +115,33 @@ st.markdown("""
         color: black;
         padding: 2px 5px;
         border-radius: 3px;
+        font-weight: bold;
     }
     .arrow-indicator {
         color: #c896ff;
         font-size: 20px;
         margin: 10px 0;
+        padding: 5px;
+        background-color: #2a2a3a;
+        border-radius: 5px;
+        text-align: center;
+    }
+    .error-box {
+        background-color: #ff4d4d20;
+        border: 2px solid #ff4d4d;
+        border-radius: 10px;
+        padding: 20px;
+        color: #ff4d4d;
+        text-align: center;
+        margin: 20px;
+    }
+    .success-box {
+        background-color: #00ff0020;
+        border: 2px solid #00ff00;
+        border-radius: 10px;
+        padding: 10px;
+        color: #00ff00;
+        text-align: center;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -139,6 +165,10 @@ if 'code' not in st.session_state:
     st.session_state.code = ""
 if 'parsed_data' not in st.session_state:
     st.session_state.parsed_data = None
+if 'steps' not in st.session_state:
+    st.session_state.steps = []
+if 'parse_error' not in st.session_state:
+    st.session_state.parse_error = None
 
 # ───────────────────────────────────────────────
 #                  PARSER
@@ -158,114 +188,293 @@ class CPPCodeParser:
         self.member_to_param_map = {}
         self.has_valid_constructor = False
         self.constructor_body = ""
+        self.all_classes = []
 
     def parse(self, code):
         try:
             # Store raw code lines
-            self.code_lines = code.split('\n')
+            self.code_lines = [line.rstrip() for line in code.split('\n') if line.strip()]
             
-            # Remove comments
-            code = re.sub(r'//.*$', '', code, flags=re.MULTILINE)
-            code = re.sub(r'/\*.*?\*/', '', code, flags=re.DOTALL)
+            # Remove comments but keep line structure
+            clean_code = self._remove_comments(code)
             
-            # Find class
-            class_match = re.search(r'class\s+(\w+)\s*{', code)
-            if not class_match:
-                self.error = "No class found"
+            # Find all classes
+            self._find_classes(clean_code)
+            
+            if not self.all_classes:
+                self.error = "No classes found in the code"
                 return False
-                
-            self.class_name = class_match.group(1)
             
-            # Find class body
-            class_start = class_match.end()
+            # Use the first class found
+            class_info = self.all_classes[0]
+            self.class_name = class_info['name']
+            self.members = class_info['members']
+            self.member_types = class_info['member_types']
+            self.ctor_params = class_info['params']
+            self.ctor_param_types = class_info['param_types']
+            self.constructor_body = class_info['ctor_body']
+            
+            print(f"Found class: {self.class_name}")
+            print(f"Members: {self.members}")
+            print(f"Constructor params: {self.ctor_params}")
+            
+            # Map members to parameters
+            self._map_members_to_params()
+            
+            # Find objects
+            self._find_objects(clean_code)
+            
+            # Find main function
+            self._find_main(clean_code)
+            
+            print(f"Found objects: {[obj['name'] for obj in self.objects]}")
+            
+            return len(self.objects) > 0
+
+        except Exception as e:
+            self.error = f"Parse error: {str(e)}"
+            print(f"Parse error: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def _remove_comments(self, code):
+        """Remove comments from code"""
+        # Remove single line comments
+        code = re.sub(r'//.*$', '', code, flags=re.MULTILINE)
+        # Remove multi-line comments
+        code = re.sub(r'/\*.*?\*/', '', code, flags=re.DOTALL)
+        return code
+
+    def _find_classes(self, code):
+        """Find all classes in the code"""
+        # Pattern to match class definition
+        class_pattern = r'class\s+(\w+)\s*{'
+        
+        for match in re.finditer(class_pattern, code):
+            class_name = match.group(1)
+            start_pos = match.end()
+            
+            # Find matching closing brace
             brace_count = 1
-            class_end = class_start
-            
-            for i, char in enumerate(code[class_start:], class_start):
-                if char == '{':
+            pos = start_pos
+            while pos < len(code) and brace_count > 0:
+                if code[pos] == '{':
                     brace_count += 1
-                elif char == '}':
+                elif code[pos] == '}':
                     brace_count -= 1
-                    if brace_count == 0:
-                        class_end = i
-                        break
+                pos += 1
             
-            class_body = code[class_start:class_end]
+            class_body = code[start_pos:pos-1]
             
-            # Parse members
-            var_pattern = r'(\w+(?:\s*[\*&])?)\s+(\w+)\s*[=;]'
-            for match in re.finditer(var_pattern, class_body):
-                typ, name = match.group(1).strip(), match.group(2).strip()
-                if name not in self.members and '(' not in typ:
-                    self.members.append(name)
-                    self.member_types[name] = typ
+            # Parse class members
+            members = []
+            member_types = {}
+            
+            # Look for member variables
+            var_pattern = r'(\w+(?:\s*[\*&])?)\s+(\w+)\s*[;=]'
+            for var_match in re.finditer(var_pattern, class_body):
+                typ, name = var_match.group(1).strip(), var_match.group(2).strip()
+                if (name not in members and 
+                    '(' not in typ and 
+                    ')' not in name and
+                    name != class_name):
+                    members.append(name)
+                    member_types[name] = typ
             
             # Find constructor
-            ctor_pattern = rf'{self.class_name}\s*\(([^)]*)\)'
+            ctor_params = []
+            ctor_param_types = {}
+            ctor_body = ""
+            
+            ctor_pattern = rf'{class_name}\s*\(([^)]*)\)\s*(?::[^{{]*)?\s*{{'
             ctor_match = re.search(ctor_pattern, code)
             
             if ctor_match:
                 params_str = ctor_match.group(1).strip()
                 
+                # Find constructor body
+                ctor_start = ctor_match.end()
+                brace_count = 1
+                ctor_end = ctor_start
+                
+                for i, ch in enumerate(code[ctor_start:], ctor_start):
+                    if ch == '{':
+                        brace_count += 1
+                    elif ch == '}':
+                        brace_count -= 1
+                        if brace_count == 0:
+                            ctor_end = i
+                            break
+                
+                ctor_body = code[ctor_start:ctor_end]
+                
                 # Parse parameters
                 if params_str and params_str != 'void':
-                    for param in params_str.split(','):
+                    # Handle default values
+                    params_str = re.sub(r'=\s*[^,)]+', '', params_str)
+                    
+                    # Split parameters
+                    for param in self._split_parameters(params_str):
                         if param.strip():
                             parts = param.strip().split()
                             if len(parts) >= 2:
                                 name = parts[-1].replace('*', '').replace('&', '').strip()
                                 typ = ' '.join(parts[:-1]).strip()
-                                self.ctor_params.append(name)
-                                self.ctor_param_types[name] = typ
+                                ctor_params.append(name)
+                                ctor_param_types[name] = typ
             
-            # Map members to parameters
+            self.all_classes.append({
+                'name': class_name,
+                'members': members,
+                'member_types': member_types,
+                'params': ctor_params,
+                'param_types': ctor_param_types,
+                'ctor_body': ctor_body
+            })
+
+    def _split_parameters(self, params_str):
+        """Split parameter string respecting templates"""
+        params = []
+        bracket_level = 0
+        current = ''
+        
+        for char in params_str + ',':
+            if char == ',' and bracket_level == 0:
+                if current.strip():
+                    params.append(current.strip())
+                current = ''
+            else:
+                if char == '<':
+                    bracket_level += 1
+                elif char == '>':
+                    bracket_level -= 1
+                current += char
+        
+        return params
+
+    def _map_members_to_params(self):
+        """Map member variables to constructor parameters"""
+        # First try exact matches
+        for mem in self.members:
+            for param in self.ctor_params:
+                if mem == param or mem in param or param in mem:
+                    self.member_to_param_map[mem] = param
+                    break
+        
+        # If no mapping, use position
+        if not self.member_to_param_map:
             for i, mem in enumerate(self.members):
                 if i < len(self.ctor_params):
                     self.member_to_param_map[mem] = self.ctor_params[i]
-            
-            # Find objects
-            obj_pattern = rf'{self.class_name}\s+(\w+)\s*\(([^)]*)\)\s*;'
-            for match in re.finditer(obj_pattern, code):
-                name, args_str = match.group(1), match.group(2)
-                args = [a.strip().strip('"\'') for a in args_str.split(',') if a.strip()]
-                self.objects.append({
-                    'name': name,
-                    'args': args
-                })
-            
-            # Find main
-            main_match = re.search(r'main\s*\([^)]*\)\s*{', code)
+
+    def _find_objects(self, code):
+        """Find object declarations"""
+        
+        # Multiple patterns for object creation
+        patterns = [
+            # ClassName objName(args);
+            rf'{self.class_name}\s+(\w+)\s*\(([^)]*)\)\s*;',
+            # ClassName objName = ClassName(args);
+            rf'{self.class_name}\s+(\w+)\s*=\s*{self.class_name}\s*\(([^)]*)\)\s*;',
+            # ClassName* objName = new ClassName(args);
+            rf'{self.class_name}\s*\*\s*(\w+)\s*=\s*new\s+{self.class_name}\s*\(([^)]*)\)\s*;',
+            # ClassName objName; (default constructor)
+            rf'{self.class_name}\s+(\w+)\s*;',
+            # ClassName objName = {args};
+            rf'{self.class_name}\s+(\w+)\s*=\s*{{([^}}]*)}}\s*;',
+            # ClassName objName{args};
+            rf'{self.class_name}\s+(\w+)\s*{{([^}}]*)}}\s*;',
+        ]
+        
+        for pattern in patterns:
+            for match in re.finditer(pattern, code, re.MULTILINE):
+                if len(match.groups()) >= 2:
+                    name, args_str = match.group(1), match.group(2)
+                    args = self._parse_arguments(args_str)
+                elif len(match.groups()) >= 1:
+                    name = match.group(1)
+                    args = []
+                else:
+                    continue
+                
+                # Check if object already exists
+                if not any(obj['name'] == name for obj in self.objects):
+                    self.objects.append({
+                        'name': name,
+                        'args': args
+                    })
+
+    def _parse_arguments(self, args_str):
+        """Parse argument string into list"""
+        args = []
+        if not args_str.strip():
+            return args
+        
+        bracket_level = 0
+        current = ''
+        
+        for char in args_str + ',':
+            if char == ',' and bracket_level == 0:
+                if current.strip():
+                    arg = current.strip()
+                    # Remove quotes
+                    if arg.startswith(('"', "'")) and arg.endswith(('"', "'")):
+                        arg = arg[1:-1]
+                    args.append(arg)
+                current = ''
+            else:
+                if char in '([{':
+                    bracket_level += 1
+                elif char in ')]}':
+                    bracket_level -= 1
+                current += char
+        
+        return args
+
+    def _find_main(self, code):
+        """Find main function"""
+        main_patterns = [
+            r'int\s+main\s*\([^)]*\)\s*{',
+            r'main\s*\(\s*\)\s*{',
+            r'void\s+main\s*\([^)]*\)\s*{'
+        ]
+        
+        for pattern in main_patterns:
+            main_match = re.search(pattern, code)
             if main_match:
                 start = main_match.end()
                 brace_count = 1
                 end = start
-                for i, char in enumerate(code[start:], start):
-                    if char == '{':
+                
+                for i, ch in enumerate(code[start:], start):
+                    if ch == '{':
                         brace_count += 1
-                    elif char == '}':
+                    elif ch == '}':
                         brace_count -= 1
                         if brace_count == 0:
                             end = i
                             break
-                self.main_lines = code[start:end].split('\n')
-            
-            return len(self.objects) > 0
-
-        except Exception as e:
-            self.error = str(e)
-            return False
+                
+                main_body = code[start:end]
+                self.main_lines = [line.strip() for line in main_body.split('\n') if line.strip()]
+                break
 
 # ───────────────────────────────────────────────
 #                VISUALIZER FUNCTIONS
 # ───────────────────────────────────────────────
 
 def parse_code(code):
+    """Parse the C++ code"""
     parser = CPPCodeParser()
     if parser.parse(code):
         return parser
-    return None
+    else:
+        st.session_state.parse_error = parser.error
+        return None
 
 def build_steps(parser, obj_idx):
+    """Build visualization steps for an object"""
     if not parser or obj_idx >= len(parser.objects):
         return []
     
@@ -276,10 +485,26 @@ def build_steps(parser, obj_idx):
     steps.append("2. Enter constructor")
     
     if obj['args']:
-        steps.append(f"3. Pass arguments: {', '.join(str(a) for a in obj['args'])}")
+        if parser.ctor_params:
+            param_strs = []
+            for i, param in enumerate(parser.ctor_params):
+                if i < len(obj['args']):
+                    param_strs.append(f"{param} = {obj['args'][i]}")
+            steps.append(f"3. Pass arguments: {', '.join(param_strs)}")
+        else:
+            steps.append(f"3. Pass arguments: {', '.join(str(a) for a in obj['args'])}")
     
     for i, mem in enumerate(parser.members):
-        val = obj['args'][i] if i < len(obj['args']) else "?"
+        val = "?"
+        if i < len(obj['args']):
+            val = obj['args'][i]
+        elif mem in parser.member_to_param_map:
+            param = parser.member_to_param_map[mem]
+            if param in parser.ctor_params:
+                param_idx = parser.ctor_params.index(param)
+                if param_idx < len(obj['args']):
+                    val = obj['args'][param_idx]
+        
         steps.append(f"4.{i+1} Initialize {mem} = {val}")
     
     steps.append(f"5. Constructor complete - {obj['name']} created")
@@ -287,9 +512,28 @@ def build_steps(parser, obj_idx):
     return steps
 
 def next_step():
+    """Move to next step"""
     if st.session_state.step < len(st.session_state.steps) - 1:
         st.session_state.step += 1
-        st.session_state.t = 0
+        # Add to console
+        step_text = st.session_state.steps[st.session_state.step]
+        if step_text not in st.session_state.console:
+            st.session_state.console.append(step_text)
+            if len(st.session_state.console) > 7:
+                st.session_state.console.pop(0)
+        
+        # Update member initialization
+        if st.session_state.parsed_data:
+            step_num = st.session_state.step
+            if step_num >= 3 and step_num - 3 < len(st.session_state.parsed_data.members):
+                mem_idx = step_num - 3
+                if mem_idx < len(st.session_state.parsed_data.members):
+                    mem = st.session_state.parsed_data.members[mem_idx]
+                    st.session_state.initialized[st.session_state.current_obj][mem] = True
+            
+            if step_num == len(st.session_state.steps) - 1:
+                st.session_state.created[st.session_state.current_obj] = True
+                
     elif st.session_state.current_obj < len(st.session_state.parsed_data.objects) - 1:
         st.session_state.current_obj += 1
         st.session_state.step = 0
@@ -300,8 +544,10 @@ def next_step():
         )
     else:
         st.session_state.step = len(st.session_state.steps)
+        st.session_state.console.append("✓ Visualization complete!")
 
 def restart():
+    """Restart visualization"""
     st.session_state.current_obj = 0
     st.session_state.step = -1
     st.session_state.auto_play = False
@@ -320,69 +566,96 @@ def restart():
 # ───────────────────────────────────────────────
 
 def render_class_panel(parser):
+    """Render class information panel"""
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.markdown(f"### Class {parser.class_name}")
+    st.markdown(f"### 📦 Class {parser.class_name}")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("**private:**")
-        for mem in parser.members[:7]:
-            typ = parser.member_types.get(mem, "?")
-            st.markdown(f"<span style='color: #ff7878;'>{typ} {mem};</span>", 
+        st.markdown("**🔒 private:**")
+        if parser.members:
+            for mem in parser.members[:7]:
+                typ = parser.member_types.get(mem, "?")
+                st.markdown(f"<span style='color: #ff7878;'>{typ} {mem};</span>", 
+                           unsafe_allow_html=True)
+        else:
+            st.markdown("<span style='color: #888;'>(No members)</span>", 
                        unsafe_allow_html=True)
     
     with col2:
-        st.markdown("**public:**")
-        params = ", ".join(parser.ctor_params)
-        st.markdown(f"<span style='color: #78ff78;'>{parser.class_name}({params})</span>", 
-                   unsafe_allow_html=True)
+        st.markdown("**🔓 public:**")
+        if parser.ctor_params:
+            params = ", ".join(parser.ctor_params)
+            st.markdown(f"<span style='color: #78ff78;'>{parser.class_name}({params})</span>", 
+                       unsafe_allow_html=True)
+        else:
+            st.markdown(f"<span style='color: #78ff78;'>{parser.class_name}()</span>", 
+                       unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
 
 def render_code_panel(parser, hl_line=None):
+    """Render code panel with optional highlighting"""
     st.markdown('<div class="code-panel">', unsafe_allow_html=True)
-    st.markdown("### C++ Code")
+    st.markdown("### 📝 C++ Code")
     
-    start_line = max(0, hl_line - 5) if hl_line else 0
-    for i in range(start_line, min(start_line + 15, len(parser.code_lines))):
-        line = parser.code_lines[i]
-        if i == hl_line:
-            st.markdown(f"<div class='hl-line'>{line}</div>", unsafe_allow_html=True)
-        else:
-            st.markdown(f"<div>{line}</div>", unsafe_allow_html=True)
+    if parser.code_lines:
+        start_line = max(0, hl_line - 5) if hl_line is not None and hl_line >= 0 else 0
+        end_line = min(start_line + 15, len(parser.code_lines))
+        
+        for i in range(start_line, end_line):
+            line = parser.code_lines[i]
+            if i == hl_line:
+                st.markdown(f"<div class='hl-line'>{line}</div>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div style='color: #a0a0ff;'>{line}</div>", unsafe_allow_html=True)
+    else:
+        st.markdown("<div style='color: #888;'>No code to display</div>", unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
 
 def render_console_panel():
+    """Render console output panel"""
     st.markdown('<div class="console-panel">', unsafe_allow_html=True)
-    st.markdown("### Console Output")
-    for line in st.session_state.console[-7:]:
-        st.markdown(f"> {line}")
+    st.markdown("### 📟 Console Output")
+    if st.session_state.console:
+        for line in st.session_state.console[-7:]:
+            st.markdown(f"<div>> {line}</div>", unsafe_allow_html=True)
+    else:
+        st.markdown("<div style='color: #666;'>> Waiting for steps...</div>", unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 def render_main_panel(parser, hl_line=None, in_ctor=False):
+    """Render main function panel"""
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.markdown("### main() function")
+    st.markdown("### 🎯 Program Flow")
     
     # Arrow indicator
     if in_ctor:
-        st.markdown("<div class='arrow-indicator'>→ in constructor</div>", 
+        st.markdown("<div class='arrow-indicator'>➡️ Currently in constructor</div>", 
                    unsafe_allow_html=True)
     else:
-        st.markdown("<div class='arrow-indicator'>← in main</div>", 
+        st.markdown("<div class='arrow-indicator'>⬅️ Currently in main/global scope</div>", 
                    unsafe_allow_html=True)
     
-    lines_to_show = parser.main_lines if parser.main_lines else ["(No main function)"]
-    for i, line in enumerate(lines_to_show[:10]):
-        if i == hl_line:
-            st.markdown(f"<div class='hl-line'>{line}</div>", unsafe_allow_html=True)
-        else:
-            st.markdown(f"<div>{line}</div>", unsafe_allow_html=True)
+    if parser.main_lines:
+        for i, line in enumerate(parser.main_lines[:8]):
+            if i == hl_line:
+                st.markdown(f"<div class='hl-line'>{line}</div>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div>{line}</div>", unsafe_allow_html=True)
+    else:
+        # Show object declarations
+        st.markdown("**Global Objects:**")
+        for obj in parser.objects:
+            st.markdown(f"<div>{parser.class_name} {obj['name']};</div>", 
+                       unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
 
 def render_object_panel(parser, idx, is_current):
+    """Render object visualization panel"""
     obj = parser.objects[idx]
     
     panel_class = "object-panel"
@@ -392,49 +665,58 @@ def render_object_panel(parser, idx, is_current):
         panel_class += " created"
     
     st.markdown(f'<div class="{panel_class}">', unsafe_allow_html=True)
-    st.markdown(f"### Object: {obj['name']}")
+    st.markdown(f"### 🎯 Object: {obj['name']}")
     
     if st.session_state.created[idx]:
-        st.markdown("**✓ CREATED**")
+        st.markdown("**✅ CREATED**")
     
-    for mem in parser.members[:6]:
-        init = st.session_state.initialized[idx].get(mem, False)
-        val = "?"
-        
-        if mem in parser.ctor_params:
-            param_idx = parser.ctor_params.index(mem)
-            if param_idx < len(obj['args']):
-                val = obj['args'][param_idx]
-        
-        if init:
-            st.markdown(f"<div class='member-init completed'>✓ {mem}: {val}</div>", 
-                       unsafe_allow_html=True)
-        else:
-            st.markdown(f"<div class='member-init'>○ {mem}: —</div>", 
-                       unsafe_allow_html=True)
+    if parser.members:
+        for mem in parser.members[:6]:
+            init = st.session_state.initialized[idx].get(mem, False)
+            val = "?"
+            
+            # Find value
+            if mem in parser.member_to_param_map:
+                param = parser.member_to_param_map[mem]
+                if param in parser.ctor_params:
+                    param_idx = parser.ctor_params.index(param)
+                    if param_idx < len(obj['args']):
+                        val = obj['args'][param_idx]
+            
+            if init:
+                st.markdown(f"<div class='member-init completed'>✓ {mem}: {val}</div>", 
+                           unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div class='member-init'>○ {mem}: —</div>", 
+                           unsafe_allow_html=True)
+    else:
+        st.markdown("<div style='color: #666;'>(No members)</div>", unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
 
 def render_step_info():
+    """Render step information"""
     st.markdown('<div class="step-box">', unsafe_allow_html=True)
-    if st.session_state.step >= 0 and st.session_state.step < len(st.session_state.steps):
-        st.markdown(f"### Step {st.session_state.step + 1}/{len(st.session_state.steps)}")
+    if (st.session_state.step >= 0 and 
+        st.session_state.step < len(st.session_state.steps)):
+        st.markdown(f"### ⚡ Step {st.session_state.step + 1}/{len(st.session_state.steps)}")
         st.markdown(f"**{st.session_state.steps[st.session_state.step]}**")
         if st.session_state.parsed_data:
             obj = st.session_state.parsed_data.objects[st.session_state.current_obj]
-            st.markdown(f"Object: {obj['name']}")
+            st.markdown(f"📌 Object: {obj['name']}")
     else:
-        st.markdown("### Press SPACE to start")
+        st.markdown("### ▶️ Press SPACE or click Next to start")
     st.markdown('</div>', unsafe_allow_html=True)
 
 def render_progress():
+    """Render progress bar"""
     if st.session_state.step >= 0 and st.session_state.steps:
-        progress = (st.session_state.step + 0.5) / len(st.session_state.steps)
+        progress = (st.session_state.step + 1) / len(st.session_state.steps)
         st.markdown(f"""
         <div class="progress-bar">
             <div class="progress-fill" style="width: {progress*100}%;"></div>
         </div>
-        <div style="text-align: right;">{int(progress*100)}%</div>
+        <div style="text-align: right; color: #ffff64;">{int(progress*100)}% Complete</div>
         """, unsafe_allow_html=True)
 
 # ───────────────────────────────────────────────
@@ -442,30 +724,91 @@ def render_progress():
 # ───────────────────────────────────────────────
 
 def main():
-    st.markdown('<h1 class="main-title">C++ Constructor Visualizer</h1>', 
+    st.markdown('<h1 class="main-title">🔧 C++ Constructor Visualizer</h1>', 
                 unsafe_allow_html=True)
     
     # File upload
-    uploaded_file = st.file_uploader("Choose a C++ file", type=['cpp', 'h', 'hpp', 'cxx'])
+    uploaded_file = st.file_uploader(
+        "📂 Choose a C++ file", 
+        type=['cpp', 'h', 'hpp', 'cxx', 'cc'],
+        help="Upload any C++ file containing a class and object declarations"
+    )
     
-    if uploaded_file is not None:
-        code = uploaded_file.getvalue().decode("utf-8")
-        st.session_state.code = code
-        
-        # Parse code
-        parser = parse_code(code)
-        if parser:
-            st.session_state.parsed_data = parser
-            if not st.session_state.steps:
+    # Example code button
+    col1, col2 = st.columns([3, 1])
+    with col2:
+        if st.button("📋 Load Example", use_container_width=True):
+            example_code = """#include <iostream>
+#include <string>
+using namespace std;
+
+class Person {
+private:
+    string name;
+    int age;
+    double height;
+public:
+    Person(string n, int a, double h) {
+        name = n;
+        age = a;
+        height = h;
+    }
+    
+    void display() {
+        cout << name << " is " << age << " years old, " 
+             << height << "m tall" << endl;
+    }
+};
+
+int main() {
+    Person p1("Alice", 25, 1.75);
+    p1.display();
+    
+    Person p2("Bob", 30, 1.85);
+    p2.display();
+    
+    return 0;
+}"""
+            st.session_state.code = example_code
+            parser = parse_code(example_code)
+            if parser:
+                st.session_state.parsed_data = parser
                 st.session_state.steps = build_steps(parser, 0)
                 st.session_state.created = [False] * len(parser.objects)
                 st.session_state.initialized = [
                     {m: False for m in parser.members} 
                     for _ in range(len(parser.objects))
                 ]
-        else:
-            st.error("Failed to parse code")
-            return
+                st.session_state.parse_error = None
+                st.rerun()
+    
+    if uploaded_file is not None:
+        code = uploaded_file.getvalue().decode("utf-8")
+        st.session_state.code = code
+        
+        with st.spinner("Parsing C++ code..."):
+            parser = parse_code(code)
+            if parser:
+                st.session_state.parsed_data = parser
+                st.session_state.steps = build_steps(parser, 0)
+                st.session_state.created = [False] * len(parser.objects)
+                st.session_state.initialized = [
+                    {m: False for m in parser.members} 
+                    for _ in range(len(parser.objects))
+                ]
+                st.session_state.parse_error = None
+                st.success(f"✅ Successfully parsed! Found class '{parser.class_name}' with {len(parser.objects)} objects.")
+            else:
+                st.session_state.parse_error = st.session_state.parse_error or "Failed to parse code"
+    
+    # Show error if any
+    if st.session_state.parse_error:
+        st.markdown(f"""
+        <div class="error-box">
+            ❌ Error: {st.session_state.parse_error}<br>
+            Please check your C++ syntax and try again.
+        </div>
+        """, unsafe_allow_html=True)
     
     if st.session_state.parsed_data:
         parser = st.session_state.parsed_data
@@ -473,22 +816,29 @@ def main():
         # Controls
         col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
-            if st.button("⏭️ Next", key="next"):
+            if st.button("⏭️ Next", key="next", use_container_width=True):
                 next_step()
+                st.rerun()
         with col2:
-            if st.button("🔄 Restart", key="restart"):
+            if st.button("🔄 Restart", key="restart", use_container_width=True):
                 restart()
+                st.rerun()
         with col3:
             auto_text = "⏸️ Pause" if st.session_state.auto_play else "▶️ Auto"
-            if st.button(auto_text, key="auto"):
+            if st.button(auto_text, key="auto", use_container_width=True):
                 st.session_state.auto_play = not st.session_state.auto_play
+                st.rerun()
         with col4:
             pause_text = "▶️ Resume" if st.session_state.paused else "⏸️ Pause"
-            if st.button(pause_text, key="pause"):
+            if st.button(pause_text, key="pause", use_container_width=True):
                 st.session_state.paused = not st.session_state.paused
+                st.rerun()
         with col5:
-            if st.button("📁 New File", key="new"):
+            if st.button("📁 New File", key="new", use_container_width=True):
                 st.session_state.parsed_data = None
+                st.session_state.code = ""
+                st.session_state.steps = []
+                st.session_state.parse_error = None
                 st.rerun()
         
         # Progress
@@ -502,11 +852,31 @@ def main():
             render_console_panel()
         
         with col2:
-            hl_code = st.session_state.step if 0 <= st.session_state.step < len(st.session_state.steps) else None
-            render_code_panel(parser, hl_code)
+            hl_line = None
+            in_ctor = False
+            
+            if 0 <= st.session_state.step < len(st.session_state.steps):
+                step_text = st.session_state.steps[st.session_state.step]
+                if "constructor" in step_text.lower() and "enter" in step_text.lower():
+                    in_ctor = True
+                    # Find constructor line
+                    for i, line in enumerate(parser.code_lines):
+                        if parser.class_name in line and '(' in line and ')' in line:
+                            hl_line = i
+                            break
+                elif "call" in step_text.lower():
+                    # Find object declaration line
+                    obj = parser.objects[st.session_state.current_obj]
+                    for i, line in enumerate(parser.code_lines):
+                        if obj['name'] in line and parser.class_name in line:
+                            hl_line = i
+                            break
+            
+            render_code_panel(parser, hl_line)
+            render_main_panel(parser, hl_line, in_ctor)
         
         # Objects
-        st.markdown("### Objects")
+        st.markdown("### 📦 Objects")
         obj_cols = st.columns(2)
         for i in range(min(2, len(parser.objects))):
             with obj_cols[i]:
@@ -517,16 +887,19 @@ def main():
         
         # Help text
         st.markdown("""
-        <div style="background-color: #28283c; padding: 10px; border-radius: 5px; margin-top: 20px;">
-            <span style="color: #ffff64;">Keyboard Shortcuts:</span> 
-            SPACE = Next | R = Restart | A = Auto-play | P = Pause
+        <div style="background-color: #28283c; padding: 15px; border-radius: 10px; margin-top: 20px;">
+            <span style="color: #ffff64; font-weight: bold;">⌨️ Keyboard Shortcuts:</span><br>
+            • <kbd>Space</kbd> - Next step<br>
+            • <kbd>R</kbd> - Restart<br>
+            • <kbd>A</kbd> - Toggle auto-play<br>
+            • <kbd>P</kbd> - Pause/Resume
         </div>
         """, unsafe_allow_html=True)
         
         # Auto-play
         if st.session_state.auto_play and not st.session_state.paused:
             if st.session_state.step < len(st.session_state.steps) - 1:
-                time.sleep(1)
+                time.sleep(1.5)
                 next_step()
                 st.rerun()
 
