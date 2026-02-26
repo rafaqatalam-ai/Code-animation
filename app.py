@@ -200,7 +200,6 @@ class CPPCodeParser:
     except Exception as e:
         return {"error": str(e)}
 
-
 def create_animation_html(step: int, parsed_data: dict) -> str:
     """Return FULL HTML (with CSS) for components.html() rendering."""
     if not parsed_data or parsed_data.get("error"):
@@ -691,4 +690,3 @@ int main() {
 
 if __name__ == "__main__":
     main()
-
