@@ -143,6 +143,16 @@ st.markdown("""
         color: #00ff00;
         text-align: center;
     }
+    .debug-box {
+        background-color: #2a2a3a;
+        border: 1px solid #6496ff;
+        border-radius: 5px;
+        padding: 10px;
+        margin: 10px 0;
+        color: #a0a0ff;
+        font-family: monospace;
+        font-size: 12px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -169,6 +179,8 @@ if 'steps' not in st.session_state:
     st.session_state.steps = []
 if 'parse_error' not in st.session_state:
     st.session_state.parse_error = None
+if 'debug_info' not in st.session_state:
+    st.session_state.debug_info = []
 
 # ───────────────────────────────────────────────
 #                  PARSER
@@ -189,11 +201,19 @@ class CPPCodeParser:
         self.has_valid_constructor = False
         self.constructor_body = ""
         self.all_classes = []
+        self.debug_info = []
 
     def parse(self, code):
         try:
+            self.debug_info = ["Starting parse..."]
+            
             # Store raw code lines
             self.code_lines = [line.rstrip() for line in code.split('\n') if line.strip()]
+            self.debug_info.append(f"Found {len(self.code_lines)} non-empty lines")
+            
+            if not self.code_lines:
+                self.error = "Empty file"
+                return False
             
             # Remove comments but keep line structure
             clean_code = self._remove_comments(code)
@@ -202,7 +222,8 @@ class CPPCodeParser:
             self._find_classes(clean_code)
             
             if not self.all_classes:
-                self.error = "No classes found in the code"
+                self.error = "No classes found in the code. Make sure your code contains a 'class' definition."
+                self.debug_info.append("ERROR: No classes found")
                 return False
             
             # Use the first class found
@@ -214,9 +235,9 @@ class CPPCodeParser:
             self.ctor_param_types = class_info['param_types']
             self.constructor_body = class_info['ctor_body']
             
-            print(f"Found class: {self.class_name}")
-            print(f"Members: {self.members}")
-            print(f"Constructor params: {self.ctor_params}")
+            self.debug_info.append(f"Found class: {self.class_name}")
+            self.debug_info.append(f"Members: {self.members}")
+            self.debug_info.append(f"Constructor params: {self.ctor_params}")
             
             # Map members to parameters
             self._map_members_to_params()
@@ -224,16 +245,20 @@ class CPPCodeParser:
             # Find objects
             self._find_objects(clean_code)
             
-            # Find main function
+            self.debug_info.append(f"Found objects: {[obj['name'] for obj in self.objects]}")
+            
+            if not self.objects:
+                self.error = "No objects found. Make sure your code creates objects of the class."
+                return False
+            
+            # Find main function (optional)
             self._find_main(clean_code)
             
-            print(f"Found objects: {[obj['name'] for obj in self.objects]}")
-            
-            return len(self.objects) > 0
+            return True
 
         except Exception as e:
             self.error = f"Parse error: {str(e)}"
-            print(f"Parse error: {e}")
+            self.debug_info.append(f"EXCEPTION: {str(e)}")
             import traceback
             traceback.print_exc()
             return False
@@ -271,58 +296,81 @@ class CPPCodeParser:
             members = []
             member_types = {}
             
-            # Look for member variables
-            var_pattern = r'(\w+(?:\s*[\*&])?)\s+(\w+)\s*[;=]'
-            for var_match in re.finditer(var_pattern, class_body):
-                typ, name = var_match.group(1).strip(), var_match.group(2).strip()
-                if (name not in members and 
-                    '(' not in typ and 
-                    ')' not in name and
-                    name != class_name):
-                    members.append(name)
-                    member_types[name] = typ
+            # Look for member variables (common patterns)
+            patterns = [
+                r'(\w+(?:\s*[\*&])?)\s+(\w+)\s*;',  # type name;
+                r'(\w+(?:\s*[\*&])?)\s+(\w+)\s*=', # type name = value;
+                r'(\w+)\s+(\w+)\s*\[\d*\]\s*;',     # array type name[size];
+            ]
+            
+            for pattern in patterns:
+                for var_match in re.finditer(pattern, class_body):
+                    if len(var_match.groups()) >= 2:
+                        typ, name = var_match.group(1).strip(), var_match.group(2).strip()
+                        # Filter out methods and keywords
+                        if (name not in members and 
+                            '(' not in typ and 
+                            ')' not in name and
+                            name != class_name and
+                            not name.startswith('_')):
+                            members.append(name)
+                            member_types[name] = typ
+                            self.debug_info.append(f"Found member: {typ} {name}")
             
             # Find constructor
             ctor_params = []
             ctor_param_types = {}
             ctor_body = ""
             
-            ctor_pattern = rf'{class_name}\s*\(([^)]*)\)\s*(?::[^{{]*)?\s*{{'
-            ctor_match = re.search(ctor_pattern, code)
-            
-            if ctor_match:
+            # Look for constructor definition
+            ctor_pattern = rf'{class_name}\s*\(([^)]*)\)'
+            for ctor_match in re.finditer(ctor_pattern, code):
                 params_str = ctor_match.group(1).strip()
                 
-                # Find constructor body
-                ctor_start = ctor_match.end()
-                brace_count = 1
-                ctor_end = ctor_start
-                
-                for i, ch in enumerate(code[ctor_start:], ctor_start):
-                    if ch == '{':
-                        brace_count += 1
-                    elif ch == '}':
-                        brace_count -= 1
-                        if brace_count == 0:
-                            ctor_end = i
-                            break
-                
-                ctor_body = code[ctor_start:ctor_end]
-                
-                # Parse parameters
-                if params_str and params_str != 'void':
-                    # Handle default values
-                    params_str = re.sub(r'=\s*[^,)]+', '', params_str)
+                # Check if this is likely a constructor (followed by { or :)
+                next_chars = code[ctor_match.end():ctor_match.end()+20]
+                if '{' in next_chars or ':' in next_chars:
                     
-                    # Split parameters
-                    for param in self._split_parameters(params_str):
-                        if param.strip():
-                            parts = param.strip().split()
-                            if len(parts) >= 2:
-                                name = parts[-1].replace('*', '').replace('&', '').strip()
-                                typ = ' '.join(parts[:-1]).strip()
-                                ctor_params.append(name)
-                                ctor_param_types[name] = typ
+                    # Find constructor body
+                    ctor_start = ctor_match.end()
+                    brace_count = 1
+                    ctor_end = ctor_start
+                    
+                    # Find opening brace
+                    while ctor_start < len(code) and code[ctor_start] != '{':
+                        ctor_start += 1
+                    
+                    if ctor_start < len(code):
+                        ctor_start += 1
+                        for i, ch in enumerate(code[ctor_start:], ctor_start):
+                            if ch == '{':
+                                brace_count += 1
+                            elif ch == '}':
+                                brace_count -= 1
+                                if brace_count == 0:
+                                    ctor_end = i
+                                    break
+                        
+                        ctor_body = code[ctor_start:ctor_end]
+                    
+                    # Parse parameters
+                    if params_str and params_str != 'void':
+                        # Handle default values
+                        params_str = re.sub(r'=\s*[^,)]+', '', params_str)
+                        
+                        # Split parameters
+                        for param in self._split_parameters(params_str):
+                            if param.strip():
+                                # Handle pointers and references
+                                parts = param.strip().split()
+                                if len(parts) >= 2:
+                                    name = parts[-1].replace('*', '').replace('&', '').strip()
+                                    typ = ' '.join(parts[:-1]).strip()
+                                    ctor_params.append(name)
+                                    ctor_param_types[name] = typ
+                                    self.debug_info.append(f"Found parameter: {typ} {name}")
+                    
+                    break  # Use first constructor found
             
             self.all_classes.append({
                 'name': class_name,
@@ -358,11 +406,11 @@ class CPPCodeParser:
         # First try exact matches
         for mem in self.members:
             for param in self.ctor_params:
-                if mem == param or mem in param or param in mem:
+                if mem == param:
                     self.member_to_param_map[mem] = param
                     break
         
-        # If no mapping, use position
+        # If no exact matches, try by position
         if not self.member_to_param_map:
             for i, mem in enumerate(self.members):
                 if i < len(self.ctor_params):
@@ -374,25 +422,25 @@ class CPPCodeParser:
         # Multiple patterns for object creation
         patterns = [
             # ClassName objName(args);
-            rf'{self.class_name}\s+(\w+)\s*\(([^)]*)\)\s*;',
-            # ClassName objName = ClassName(args);
-            rf'{self.class_name}\s+(\w+)\s*=\s*{self.class_name}\s*\(([^)]*)\)\s*;',
-            # ClassName* objName = new ClassName(args);
-            rf'{self.class_name}\s*\*\s*(\w+)\s*=\s*new\s+{self.class_name}\s*\(([^)]*)\)\s*;',
+            (rf'{self.class_name}\s+(\w+)\s*\(([^)]*)\)\s*;', True),
             # ClassName objName; (default constructor)
-            rf'{self.class_name}\s+(\w+)\s*;',
+            (rf'{self.class_name}\s+(\w+)\s*;', False),
+            # ClassName objName = ClassName(args);
+            (rf'{self.class_name}\s+(\w+)\s*=\s*{self.class_name}\s*\(([^)]*)\)\s*;', True),
+            # ClassName* objName = new ClassName(args);
+            (rf'{self.class_name}\s*\*\s*(\w+)\s*=\s*new\s+{self.class_name}\s*\(([^)]*)\)\s*;', True),
             # ClassName objName = {args};
-            rf'{self.class_name}\s+(\w+)\s*=\s*{{([^}}]*)}}\s*;',
+            (rf'{self.class_name}\s+(\w+)\s*=\s*{{([^}}]*)}}\s*;', True),
             # ClassName objName{args};
-            rf'{self.class_name}\s+(\w+)\s*{{([^}}]*)}}\s*;',
+            (rf'{self.class_name}\s+(\w+)\s*{{([^}}]*)}}\s*;', True),
         ]
         
-        for pattern in patterns:
+        for pattern, has_args in patterns:
             for match in re.finditer(pattern, code, re.MULTILINE):
-                if len(match.groups()) >= 2:
+                if has_args and len(match.groups()) >= 2:
                     name, args_str = match.group(1), match.group(2)
                     args = self._parse_arguments(args_str)
-                elif len(match.groups()) >= 1:
+                elif not has_args and len(match.groups()) >= 1:
                     name = match.group(1)
                     args = []
                 else:
@@ -404,6 +452,7 @@ class CPPCodeParser:
                         'name': name,
                         'args': args
                     })
+                    self.debug_info.append(f"Found object: {name} with args {args}")
 
     def _parse_arguments(self, args_str):
         """Parse argument string into list"""
@@ -421,6 +470,14 @@ class CPPCodeParser:
                     # Remove quotes
                     if arg.startswith(('"', "'")) and arg.endswith(('"', "'")):
                         arg = arg[1:-1]
+                    # Try to convert to number if possible
+                    try:
+                        if '.' in arg:
+                            arg = float(arg)
+                        else:
+                            arg = int(arg)
+                    except:
+                        pass
                     args.append(arg)
                 current = ''
             else:
@@ -447,18 +504,25 @@ class CPPCodeParser:
                 brace_count = 1
                 end = start
                 
-                for i, ch in enumerate(code[start:], start):
-                    if ch == '{':
-                        brace_count += 1
-                    elif ch == '}':
-                        brace_count -= 1
-                        if brace_count == 0:
-                            end = i
-                            break
+                # Find opening brace
+                while start < len(code) and code[start] != '{':
+                    start += 1
                 
-                main_body = code[start:end]
-                self.main_lines = [line.strip() for line in main_body.split('\n') if line.strip()]
-                break
+                if start < len(code):
+                    start += 1
+                    for i, ch in enumerate(code[start:], start):
+                        if ch == '{':
+                            brace_count += 1
+                        elif ch == '}':
+                            brace_count -= 1
+                            if brace_count == 0:
+                                end = i
+                                break
+                    
+                    main_body = code[start:end]
+                    self.main_lines = [line.strip() for line in main_body.split('\n') if line.strip()]
+                    self.debug_info.append(f"Found main function with {len(self.main_lines)} lines")
+                    break
 
 # ───────────────────────────────────────────────
 #                VISUALIZER FUNCTIONS
@@ -468,9 +532,11 @@ def parse_code(code):
     """Parse the C++ code"""
     parser = CPPCodeParser()
     if parser.parse(code):
+        st.session_state.debug_info = parser.debug_info
         return parser
     else:
         st.session_state.parse_error = parser.error
+        st.session_state.debug_info = parser.debug_info
         return None
 
 def build_steps(parser, obj_idx):
@@ -525,12 +591,14 @@ def next_step():
         # Update member initialization
         if st.session_state.parsed_data:
             step_num = st.session_state.step
+            # Steps 3+ are member initializations (step 0: call, 1: enter, 2: args, then members)
             if step_num >= 3 and step_num - 3 < len(st.session_state.parsed_data.members):
                 mem_idx = step_num - 3
                 if mem_idx < len(st.session_state.parsed_data.members):
                     mem = st.session_state.parsed_data.members[mem_idx]
                     st.session_state.initialized[st.session_state.current_obj][mem] = True
             
+            # Last step marks object as created
             if step_num == len(st.session_state.steps) - 1:
                 st.session_state.created[st.session_state.current_obj] = True
                 
@@ -580,7 +648,7 @@ def render_class_panel(parser):
                 st.markdown(f"<span style='color: #ff7878;'>{typ} {mem};</span>", 
                            unsafe_allow_html=True)
         else:
-            st.markdown("<span style='color: #888;'>(No members)</span>", 
+            st.markdown("<span style='color: #888;'>(No member variables found)</span>", 
                        unsafe_allow_html=True)
     
     with col2:
@@ -649,7 +717,8 @@ def render_main_panel(parser, hl_line=None, in_ctor=False):
         # Show object declarations
         st.markdown("**Global Objects:**")
         for obj in parser.objects:
-            st.markdown(f"<div>{parser.class_name} {obj['name']};</div>", 
+            args_str = ", ".join(str(a) for a in obj['args'])
+            st.markdown(f"<div>{parser.class_name} {obj['name']}({args_str});</div>", 
                        unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
@@ -682,6 +751,10 @@ def render_object_panel(parser, idx, is_current):
                     param_idx = parser.ctor_params.index(param)
                     if param_idx < len(obj['args']):
                         val = obj['args'][param_idx]
+            elif mem in parser.ctor_params:
+                param_idx = parser.ctor_params.index(mem)
+                if param_idx < len(obj['args']):
+                    val = obj['args'][param_idx]
             
             if init:
                 st.markdown(f"<div class='member-init completed'>✓ {mem}: {val}</div>", 
@@ -690,7 +763,7 @@ def render_object_panel(parser, idx, is_current):
                 st.markdown(f"<div class='member-init'>○ {mem}: —</div>", 
                            unsafe_allow_html=True)
     else:
-        st.markdown("<div style='color: #666;'>(No members)</div>", unsafe_allow_html=True)
+        st.markdown("<div style='color: #666;'>(No member variables)</div>", unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -718,6 +791,15 @@ def render_progress():
         </div>
         <div style="text-align: right; color: #ffff64;">{int(progress*100)}% Complete</div>
         """, unsafe_allow_html=True)
+
+def render_debug_info():
+    """Render debug information"""
+    if st.session_state.debug_info and st.session_state.parse_error:
+        with st.expander("🔍 Debug Information"):
+            st.markdown('<div class="debug-box">', unsafe_allow_html=True)
+            for line in st.session_state.debug_info:
+                st.markdown(f"<div>{line}</div>", unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
 # ───────────────────────────────────────────────
 #                     MAIN
@@ -747,24 +829,26 @@ private:
     string name;
     int age;
     double height;
+    string city;
 public:
-    Person(string n, int a, double h) {
+    Person(string n, int a, double h, string c) {
         name = n;
         age = a;
         height = h;
+        city = c;
     }
     
     void display() {
         cout << name << " is " << age << " years old, " 
-             << height << "m tall" << endl;
+             << height << "m tall, from " << city << endl;
     }
 };
 
 int main() {
-    Person p1("Alice", 25, 1.75);
+    Person p1("Alice", 25, 1.75, "New York");
     p1.display();
     
-    Person p2("Bob", 30, 1.85);
+    Person p2("Bob", 30, 1.85, "London");
     p2.display();
     
     return 0;
@@ -809,6 +893,9 @@ int main() {
             Please check your C++ syntax and try again.
         </div>
         """, unsafe_allow_html=True)
+        
+        # Show debug info
+        render_debug_info()
     
     if st.session_state.parsed_data:
         parser = st.session_state.parsed_data
@@ -839,6 +926,7 @@ int main() {
                 st.session_state.code = ""
                 st.session_state.steps = []
                 st.session_state.parse_error = None
+                st.session_state.debug_info = []
                 st.rerun()
         
         # Progress
@@ -857,13 +945,14 @@ int main() {
             
             if 0 <= st.session_state.step < len(st.session_state.steps):
                 step_text = st.session_state.steps[st.session_state.step]
-                if "constructor" in step_text.lower() and "enter" in step_text.lower():
+                if "enter" in step_text.lower():
                     in_ctor = True
                     # Find constructor line
                     for i, line in enumerate(parser.code_lines):
                         if parser.class_name in line and '(' in line and ')' in line:
-                            hl_line = i
-                            break
+                            if 'class' not in line.lower():
+                                hl_line = i
+                                break
                 elif "call" in step_text.lower():
                     # Find object declaration line
                     obj = parser.objects[st.session_state.current_obj]
